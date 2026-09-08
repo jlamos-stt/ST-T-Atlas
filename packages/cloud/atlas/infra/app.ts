@@ -3,7 +3,8 @@
 import { Env, Config } from '@webiai/sdk.core';
 import { Stack } from '@webiai/sdk.infra/util/stack';
 import { resources } from '@webiai/sdk.infra/util/resources';
-import { aws as awsInfra } from '@webiai/sdk.infra';
+import { DynamoTable } from '@webiai/sdk.infra/aws/dynamodb';
+import { ApiGateway } from '@webiai/sdk.infra/aws/services';
 import { cloudAtlasEnvVisitor, type CloudAtlasEnv } from './env.js';
 
 /**
@@ -31,9 +32,9 @@ import { cloudAtlasEnvVisitor, type CloudAtlasEnv } from './env.js';
 export class CloudAtlas extends Stack<CloudAtlasEnv> {
   /** Persistencia operativa: entidades del portafolio, auditoría y agregados. */
   readonly tables = resources<{
-    Portfolio: awsInfra.dynamodb.DynamoTable;
-    Audit: awsInfra.dynamodb.DynamoTable;
-    Metrics: awsInfra.dynamodb.DynamoTable;
+    Portfolio: DynamoTable;
+    Audit: DynamoTable;
+    Metrics: DynamoTable;
   }>();
 
   /** Almacenamiento del contenido documental Markdown versionado. */
@@ -56,7 +57,7 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
 
   /** Superficie HTTP pública del portal y de la pasarela MCP. */
   readonly gateway = resources<{
-    Http: awsInfra.services.ApiGateway;
+    Http: ApiGateway;
   }>();
 
   /** Interfaz web servida como sitio estático. */
@@ -105,20 +106,20 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
   private initStorage(): void {
     // Portafolio: proyectos, slices y asignaciones. La clave de orden permite
     // agrupar las entidades de un mismo proyecto sin consultas cruzadas.
-    this.tables.Portfolio = new awsInfra.dynamodb.DynamoTable('Portfolio', {
+    this.tables.Portfolio = new DynamoTable('Portfolio', {
       fields: { pk: 'string', sk: 'string' },
       primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
     });
 
     // Auditoría: registro inmutable de cada operación, con expiración por TTL.
-    this.tables.Audit = new awsInfra.dynamodb.DynamoTable('Audit', {
+    this.tables.Audit = new DynamoTable('Audit', {
       fields: { pk: 'string', sk: 'string' },
       primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
       ttl: 'expiresAt',
     });
 
     // Métricas: agregados diarios por persona, slice y proyecto.
-    this.tables.Metrics = new awsInfra.dynamodb.DynamoTable('Metrics', {
+    this.tables.Metrics = new DynamoTable('Metrics', {
       fields: { pk: 'string', sk: 'string' },
       primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
       ttl: 'expiresAt',
@@ -209,7 +210,7 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
    * de modo que sus permisos y su autorización permanecen separados.
    */
   private initGateway(): void {
-    this.gateway.Http = new awsInfra.services.ApiGateway('Http', {
+    this.gateway.Http = new ApiGateway('Http', {
       cors: true,
     });
 
@@ -254,6 +255,10 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
    * slice sería una intención y no una condición verificable.
    */
   private initBudget(): void {
+    // Destinatario de las alertas de desviación. Sin al menos una dirección el
+    // presupuesto existiría pero nadie recibiría el aviso.
+    const costAlertRecipients = ['jlamos@stt.com.co'];
+
     new aws.budgets.Budget('MonthlyCostBudget', {
       budgetType: 'COST',
       timeUnit: 'MONTHLY',
@@ -265,14 +270,14 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
           threshold: 80,
           thresholdType: 'PERCENTAGE',
           notificationType: 'ACTUAL',
-          subscriberEmailAddresses: [],
+          subscriberEmailAddresses: costAlertRecipients,
         },
         {
           comparisonOperator: 'GREATER_THAN',
           threshold: 100,
           thresholdType: 'PERCENTAGE',
           notificationType: 'FORECASTED',
-          subscriberEmailAddresses: [],
+          subscriberEmailAddresses: costAlertRecipients,
         },
       ],
     });
