@@ -1,0 +1,60 @@
+{
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "baseUrl": ".",
+    "outDir": "./dist",
+    "skipLibCheck": true,
+    "paths": {
+      "@res": [
+        "./resources/index"
+      ],
+      "@res/*": [
+        "./resources/*"
+      ],
+      "@module:api": [
+        "./modules/api/src/index"
+      ],
+      "@module:api/*": [
+        "./modules/api/src/*"
+      ],
+      "@module:mcp": [
+        "./modules/mcp/src/index"
+      ],
+      "@module:mcp/*": [
+        "./modules/mcp/src/*"
+      ],
+      "@module:spa": [
+        "./modules/spa/src/index"
+      ],
+      "@module:spa/*": [
+        "./modules/spa/src/*"
+      ],
+      "@module:metrics": [
+        "./modules/metrics/src/index"
+      ],
+      "@module:metrics/*": [
+        "./modules/metrics/src/*"
+      ],
+      "@sst/platform/*": [
+        "./.sst/platform/src/*"
+      ],
+      "@webiai/sdk.infra/*": [
+        "./.sst/webiai/dist/*"
+      ]
+    }
+  },
+  "include": [
+    "infra/**/*",
+    "shared/**/*",
+    "resources/**/*",
+    "sst.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".sst",
+    "modules"
+  ]
+}
