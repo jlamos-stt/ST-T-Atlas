@@ -128,6 +128,7 @@ La publicación depende de la herramienta MCP autenticada y de su auditoría. Lo
 | ADR-DOC-004 | Se admitirán hasta 2 MiB por documento y 100 versiones por documento en la primera versión; el contenido más antiguo se conservará en archivo hasta revisión de retención corporativa. | Protege costo y rendimiento sin impedir los artefactos Markdown habituales del flujo. |
 | ADR-DOC-005 | El renderizador bloqueará HTML embebido y aplicará una lista permitida de Markdown y enlaces HTTPS seguros. | Reduce XSS y evita que Markdown externo ejecute contenido activo en el portal. |
 | ADR-DOC-006 | Una corrección se publica como versión nueva; el historial no se reescribe ni se elimina desde el portal. | Preserva trazabilidad y evita pérdida de evidencia documental. |
+| ADR-DOC-007 | No se incorporan estados de borrador ni contenido no publicado. Toda versión recibida por MCP es publicada y visible. | Los mockups mostraban entradas "Borrador", pero el borrador vive en el entorno de desarrollo. Introducirlo exigiría un ciclo de aprobación documental que está fuera de alcance y contradice el propósito de visibilidad inmediata. |
 
 ### 7.2 Scope Limitations
 
@@ -135,6 +136,7 @@ La publicación depende de la herramienta MCP autenticada y de su auditoría. Lo
 |---|---|---|---|---|
 | SL-DOC-001 | Edición | Atlas será solo lectura para Markdown; no habrá edición, comparación visual de diffs ni restauración de versiones desde la interfaz. | La fuente de contenido es MCP y el objetivo no es reemplazar Git o un editor documental. | La corrección o restauración se enviará como una nueva publicación desde el entorno de desarrollo. |
 | SL-DOC-002 | Colaboración | No habrá comentarios, aprobaciones ni flujos de revisión documental. | No forman parte del alcance de la primera versión. | La discusión sigue ocurriendo en las herramientas actuales del equipo. |
+| SL-DOC-003 | Ciclo de vida | No existen versiones en estado borrador dentro de Atlas. | El borrador pertenece al entorno de desarrollo y su gestión implicaría un flujo de aprobación no contemplado. | Una versión publicada es inmediatamente visible; no hay retención previa a publicación. |
 
 ### 7.3 Future Improvements
 

@@ -44,6 +44,8 @@ La entrada al portal es un dashboard minimalista con indicadores agregados: proy
 
 Al abrir un proyecto se presenta su detalle: descripción, estado, slices con su avance, asignaciones, documentación disponible, actividad reciente y métricas asociadas. Los perfiles administrativos recorren exactamente la misma información en modo consulta, sin acciones de modificación disponibles ni permitidas por el servidor.
 
+Además del recorrido por proyecto, existe una vista transversal de slices que reúne el trabajo en curso de todos los proyectos. Responde una pregunta distinta a la del listado de proyectos: qué se está haciendo ahora mismo y quién es responsable, sin exigir abrir proyecto por proyecto. Es una vista de solo lectura con filtros por estado y responsable; la gestión de una slice sigue ocurriendo en su proyecto.
+
 ### 2.5 Concurrencia entre portal y MCP
 
 Como las entidades pueden cambiar desde el portal o desde un cliente MCP, cada entidad mantiene una versión y cada mutación declara su origen. Una escritura que llega con una versión desactualizada se rechaza e informa el estado vigente, en lugar de sobrescribir silenciosamente el cambio previo.
@@ -96,6 +98,9 @@ La autorización se evalúa en el servidor según el rol global del perfil, conf
 - El listado de proyectos permite abrir el detalle de cada proyecto.
 - El detalle muestra slices, asignaciones, documentación disponible, actividad y métricas.
 - Un perfil administrativo consulta la misma información y no puede ejecutar mutaciones, incluso llamando directamente a la API.
+- La vista transversal de slices reúne slices de todos los proyectos e indica a qué proyecto pertenece cada una.
+- La vista transversal permite filtrar por estado y por responsable.
+- La vista transversal no ofrece acciones de mutación y enlaza a la slice en su proyecto.
 
 ### Concurrencia
 
@@ -132,6 +137,7 @@ La autorización se evalúa en el servidor según el rol global del perfil, conf
 | ADR-PORT-005 | Cada mutación llevará versión de entidad y origen (`portal` o `mcp`). Las escrituras desactualizadas serán rechazadas y el cliente deberá consultar el estado canónico antes de reintentar. | Evita que el último escritor sobrescriba silenciosamente cambios manuales o enviados por agentes. |
 | ADR-PORT-006 | El avance del proyecto se deriva del estado de sus slices y no se captura como campo manual independiente. | Evita datos contradictorios entre proyecto y slices. |
 | ADR-PORT-007 | Un proyecto archivado se conserva como registro consultable y no admite nuevas mutaciones operativas. | Preserva historia sin mantener trabajo cerrado como activo. |
+| ADR-PORT-008 | Incorporar una vista transversal de slices, de solo lectura, con filtros por estado y responsable. La gestión de cada slice permanece en su proyecto. | Los mockups la propusieron y resuelve una necesidad real de seguimiento diario sin recorrer cada proyecto; mantenerla en solo lectura evita duplicar reglas de mutación y auditoría. |
 
 ### 7.2 Scope Limitations
 
@@ -157,8 +163,9 @@ La autorización se evalúa en el servidor según el rol global del perfil, conf
 | 02 | Registro de slices y avance | Registrar slices y derivar el avance del proyecto. | 2d | ai-identified |
 | 03 | Asignación de responsables | Vincular personas a slices con responsabilidad clara. | 2d | ai-identified |
 | 04 | Dashboard y detalle de proyecto | Ofrecer la lectura centralizada del portafolio. | 3d | ai-identified |
-| 05 | Control de concurrencia y origen | Evitar sobrescrituras entre portal y MCP. | 2d | ai-identified |
-| | | **Total** | **11d** | |
+| 05 | Vista transversal de slices | Ver el trabajo en curso de todos los proyectos en un solo lugar. | 2d | ai-identified |
+| 06 | Control de concurrencia y origen | Evitar sobrescrituras entre portal y MCP. | 2d | ai-identified |
+| | | **Total** | **13d** | |
 
 ---
 
@@ -239,7 +246,27 @@ La autorización se evalúa en el servidor según el rol global del perfil, conf
 
 ---
 
-### Slice 05: Control de concurrencia y origen
+### Slice 05: Vista transversal de slices
+
+| Campo | Contenido |
+|---|---|
+| **Objetivo** | Cualquier perfil autenticado ve en un solo lugar qué slices están en curso en toda la corporación y quién responde por ellas. |
+| **Flujo** | Navegación "Slices" → listado transversal con proyecto de origen → filtros por estado y responsable → enlace a la slice en su proyecto. |
+| **Cobertura** | • 2.4: consulta del portafolio, vista transversal |
+| **Contexto** | Solo lectura; la gestión permanece en el proyecto. Lecturas resueltas contra el estado canónico. |
+| **Est.** | 2d |
+| **Deps** | 04 |
+| **Fuera de alcance** | Crear, editar o reasignar slices desde esta vista. |
+
+**Criterios de aceptación**:
+- [ ] La vista reúne slices de todos los proyectos e indica su proyecto de origen.
+- [ ] Permite filtrar por estado y por responsable.
+- [ ] No ofrece acciones de mutación para ningún rol.
+- [ ] Cada fila enlaza al detalle de la slice en su proyecto.
+
+---
+
+### Slice 06: Control de concurrencia y origen
 
 | Campo | Contenido |
 |---|---|
