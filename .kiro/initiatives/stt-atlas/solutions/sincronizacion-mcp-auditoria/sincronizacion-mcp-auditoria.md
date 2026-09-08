@@ -151,7 +151,7 @@ Los alcances se conceden por dominio y sensibilidad, con el mínimo privilegio n
 |---|---|---|
 | ADR-MCP-001 | El servidor MCP usará transporte HTTP seguro y se comportará como OAuth Resource Server; validará tokens, audiencia y scopes, pero no reutilizará ni emitirá tokens de otros IDEs. | Es el modelo de seguridad previsto por MCP para servidores HTTP protegidos y evita credenciales transferibles. |
 | ADR-MCP-002 | El único cliente MCP objetivo de la POC será Kiro; otros IDEs se declararán compatibles solo tras superar la misma verificación. | Concentra el esfuerzo en el entorno que ST&T usa hoy y evita afirmar compatibilidad sin evidencia. |
-| ADR-MCP-003 | La elección del Authorization Server para MCP queda condicionada a un spike de compatibilidad con Kiro. | Es una decisión de seguridad bloqueante: un proveedor que Kiro no pueda usar no es una opción válida, aunque resulte conveniente. |
+| ADR-MCP-003 | La elección del Authorization Server se resolvió con evidencia documental de las capacidades OAuth de Kiro; la verificación funcional permanece en el slice de interoperabilidad. | Un proveedor que Kiro no pueda usar no es una opción válida, por lo que la decisión requería evidencia y no conveniencia. |
 | ADR-MCP-011 | El servidor se diseñará conforme al estándar MCP y sin dependencias propietarias de Kiro, aunque solo se verifique con Kiro en la POC. | Permite incorporar otros IDEs después sin rediseñar la integración. |
 | ADR-MCP-004 | Herramientas automáticas iniciales: registrar actividad, actualizar progreso no terminal, publicar Markdown validado y reportar métricas agregadas. | Son operaciones reversibles o aditivas que pueden validarse por contrato y auditoría. |
 | ADR-MCP-005 | Requerirán confirmación explícita: crear o archivar proyectos; crear, reasignar o eliminar asignaciones; marcar una slice como `completed`; cambios de rol o baja de usuarios. | Estas acciones afectan propiedad, visibilidad, estado final o acceso y no deben depender solo de interpretación del agente. |
@@ -161,9 +161,18 @@ Los alcances se conceden por dominio y sensibilidad, con el mínimo privilegio n
 | ADR-MCP-009 | El rol efectivo se resolverá siempre desde el perfil corporativo del actor, no desde afirmaciones del cliente. | Impide que la automatización amplíe los permisos de la persona. |
 | ADR-MCP-010 | Un cliente que no pueda presentar confirmaciones no recibirá alcances sensibles. | Mantiene el control humano incluso con clientes de capacidades limitadas. |
 
-### 7.2 Bloqueador
+| ADR-MCP-012 | Usar Amazon Cognito como servidor de autorización del MCP, con un cliente público y PKCE, sin `client_secret`. | Kiro admite clientes públicos en el IDE y solo acepta secretos en la CLI; exigir secreto rompería la compatibilidad. Cognito ya está en AWS, admite resource servers, scopes personalizados e indicadores de recurso, y evita introducir un proveedor externo en la POC. |
+| ADR-MCP-013 | Definir scopes por dominio y sensibilidad: `atlas/portfolio.read`, `atlas/portfolio.write`, `atlas/docs.write`, `atlas/metrics.write` y `atlas/admin.sensitive`. | Permite mínimo privilegio por cliente sin multiplicar permisos por herramienta. |
+| ADR-MCP-014 | La autorización de operaciones sensibles se resuelve en el servidor mediante rol, estado del perfil y un scope sensible explícito; la confirmación en el cliente es una capa complementaria. | Kiro permite marcar herramientas como `autoApprove`, por lo que la confirmación del cliente no es una garantía y no puede ser el único control. |
+| ADR-MCP-015 | Emitir tokens de vida corta y no depender de credenciales de larga duración en el cliente. | Kiro reautentica automáticamente cuando el token expira sin refresh token, por lo que la vida corta no degrada la experiencia. |
 
-No se habilitará el piloto MCP con datos reales hasta completar el spike de interoperabilidad y seleccionar un Authorization Server compatible. La especificación MCP trata al servidor protegido como recurso OAuth que valida tokens, no como un emisor de credenciales de IDE. [Referencia MCP](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization)
+### 7.2 Bloqueador resuelto
+
+La investigación documental confirmó que Kiro admite servidores MCP remotos por HTTPS, gestiona el flujo OAuth en navegador, permite un `clientId` preregistrado cuando no hay DCR y acepta clientes públicos con PKCE en el IDE. Con esa evidencia se selecciona Cognito como servidor de autorización y se levanta el bloqueo de diseño.
+
+Permanece pendiente la verificación funcional contra una instancia real de Atlas, cubierta por el slice de interoperabilidad. La especificación MCP mantiene al servidor protegido como recurso OAuth que valida tokens y no los emite. [Referencia MCP](https://modelcontextprotocol.io/specification/2025-06-18/basic/authorization)
+
+> **Guía operativa**: [Interoperabilidad OAuth de Kiro con el servidor MCP](./resources/kiro-mcp-oauth-interoperabilidad.md)
 
 ### 7.3 Scope Limitations
 
