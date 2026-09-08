@@ -6,7 +6,9 @@
   "engines": {
     "node": ">=22.0.0"
   },
-  "workspaces": [],
+  "workspaces": [
+    "packages/cloud/atlas"
+  ],
   "devDependencies": {
     "@webiai/devlink": "^2.8.1",
     "@webiai/sdk.cli": "0.23.11"
@@ -14,5 +16,11 @@
   "overrides": {
     "google-protobuf": "3.21.2"
   },
-  "dependencies": {}
+  "dependencies": {
+    "@webiai/sdk.core": "0.23.11",
+    "@webiai/sdk.aws": "0.23.11",
+    "@webiai/sdk.infra-provider": "0.23.11",
+    "@webiai/sdk.http": "0.23.11",
+    "@webiai/sdk.ioc": "0.23.11"
+  }
 }

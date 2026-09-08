@@ -1,0 +1,14 @@
+{
+  "name": "@stt/atlas.cloud.atlas",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "modules/api",
+    "modules/mcp",
+    "modules/metrics"
+  ],
+  "scripts": {
+    "cloud.atlas": "npm run webiai:dev"
+  }
+}

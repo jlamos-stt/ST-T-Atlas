@@ -9,7 +9,7 @@ export default {
 
   sdk: {
     version: "0.23.11",
-    packages: [],
+    packages: ["core", "aws", "infra-provider", "infra", "http", "ioc"],
   },
 
   devlink: {

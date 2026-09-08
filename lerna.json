@@ -1,4 +1,7 @@
 {
   "version": "0.1.0",
-  "packages": []
+  "packages": [
+    "packages/cloud/atlas",
+    "packages/cloud/atlas/modules/*"
+  ]
 }

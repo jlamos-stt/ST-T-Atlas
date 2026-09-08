@@ -28,9 +28,11 @@ Un despliegue no requiere pasos manuales: se ejecuta desde la definición versio
 
 ### 2.2 Límites de cómputo por dominio
 
-La arquitectura mantiene tres límites de cómputo. La API de Atlas atiende las operaciones del portal. La pasarela MCP atiende clientes autenticados de IDE, con su propia superficie de exposición y controles. El procesamiento asíncrono consume eventos auditados para construir agregados de métricas.
+La arquitectura mantiene tres límites de cómputo, cada uno como una función bajo demanda. La API de Atlas atiende las operaciones del portal. La pasarela MCP atiende clientes autenticados de IDE, con su propia superficie de exposición y controles. El procesamiento asíncrono consume eventos auditados para construir agregados de métricas.
 
 Cada límite agrupa las operaciones de su dominio en un mismo despliegue en lugar de crear una función por acción. Esta separación existe porque los tres tienen exposición, patrón de carga y privilegios distintos; cualquier separación adicional deberá justificarse con una diferencia equivalente.
+
+El cómputo se factura por uso y no mantiene capacidad encendida en reposo. El frontend se publica como sitio estático distribuido, de modo que servir la interfaz no consume cómputo. Esta elección responde al límite de presupuesto de la POC: un clúster de contenedores con red privada introduce costo fijo mensual que agotaría el presupuesto antes de recibir tráfico real.
 
 ### 2.3 Observabilidad y control de costo
 
@@ -130,6 +132,9 @@ El acceso entre componentes usa roles de mínimo privilegio por dominio. Los sec
 | ADR-PLAT-006 | Ejecutar esta etapa como POC en la cuenta AWS de pruebas, con datos ficticios o no sensibles y con el entorno identificado como no productivo. | Refleja el alcance real acordado y evita que la organización dependa de un entorno sin gobierno corporativo. |
 | ADR-PLAT-004 | Definir disponibilidad inicial como servicio tolerante a reinicios, no alta disponibilidad multi-región. | Atiende el objetivo actual de continuidad sin introducir costo y operación desproporcionados para la primera versión. |
 | ADR-PLAT-005 | Establecer el SLO inicial de sincronización: 95% de mutaciones MCP aceptadas visibles en su vista canónica en menos de 5 segundos y 99% en menos de 30 segundos. | Convierte “inmediato” en una meta medible y compatible con lecturas y proyecciones asíncronas. |
+| ADR-PLAT-007 | Usar cómputo bajo demanda: API HTTP con una función por dominio, DynamoDB on-demand, S3 para contenido documental y SQS con cola de fallos. Se descarta ECS/Fargate para la POC. | Un clúster con subredes privadas exige NAT Gateway, cuyo costo fijo mensual consume por sí solo la mayor parte del presupuesto de 50 USD, sumado a tareas encendidas de forma permanente. El pago por uso mantiene disponibilidad sin costo por inactividad. |
+| ADR-PLAT-008 | Fijar un presupuesto mensual de 50 USD con alertas de desviación sobre el gasto etiquetado del proyecto. | Límite operativo definido para la POC; convierte el control de costo en una condición verificable. |
+| ADR-PLAT-009 | Publicar el frontend como sitio estático distribuido y no como servicio en contenedor. | Evita cómputo permanente para servir una SPA y reduce el costo a almacenamiento y transferencia. |
 
 ### 7.2 Alcance de POC y condición para producción
 
