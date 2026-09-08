@@ -7,7 +7,8 @@
     "node": ">=22.0.0"
   },
   "workspaces": [
-    "packages/cloud/atlas"
+    "packages/cloud/atlas",
+    "packages/cloud/atlas/modules/*"
   ],
   "devDependencies": {
     "@webiai/devlink": "^2.8.1",
