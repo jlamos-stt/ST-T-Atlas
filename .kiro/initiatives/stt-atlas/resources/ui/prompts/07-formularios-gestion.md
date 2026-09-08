@@ -46,4 +46,4 @@ Formularios de creación y edición de proyecto, slice y asignación, más el av
 
 | Imagen | Fecha | Cambios |
 |---|---|---|
-| — | — | Pendiente de generar |
+| `07-formularios-gestion--nuevo-proyecto--v1.png` | 2026-09-08 | Panel lateral de nuevo proyecto |

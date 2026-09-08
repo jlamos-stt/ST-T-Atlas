@@ -20,7 +20,7 @@ Muestra la evolución de un documento: quién publicó cada versión, cuándo y 
 
 > Panel lateral derecho sobre el visor de documentación, con encabezado "Historial de versiones" y subtítulo con el nombre del documento "Sincronización MCP y auditoría".
 >
-> Lista cronológica descendente de seis versiones. Cada entrada muestra: número de versión destacado, fecha y hora, actor, origen "MCP", y una huella de contenido corta y abreviada en tipografía monoespaciada. La versión más reciente lleva la etiqueta "Vigente". Las entradas son seleccionables para lectura.
+> Lista cronológica descendente de seis versiones numeradas de forma consecutiva, de "Versión 6" a "Versión 1". Cada entrada muestra: número de versión destacado, fecha y hora, actor, origen "MCP", y una huella de contenido corta y abreviada en tipografía monoespaciada. La versión más reciente lleva la etiqueta "Vigente". Las entradas son seleccionables para lectura. Todas las entradas son versiones publicadas: no incluyas estados de borrador ni contenido sin publicar.
 >
 > Al pie de la lista, una nota discreta: "Las versiones anteriores se conservan en archivo. Para corregir un documento, publica una nueva versión desde tu entorno de desarrollo."
 >
@@ -36,9 +36,10 @@ Muestra la evolución de un documento: quién publicó cada versión, cuándo y 
 - Restaurar, revertir o eliminar versiones.
 - Comparación visual de diferencias o vista de diff.
 - Referencias a commits o ramas.
+- Estados de borrador o versiones sin publicar: Atlas solo conserva versiones publicadas (ADR-DOC-007).
 
 ## Versiones generadas
 
 | Imagen | Fecha | Cambios |
 |---|---|---|
-| — | — | Pendiente de generar |
+| `09-documentacion-historial--desktop--v1.png` | 2026-09-08 | Historial de versiones. Pendiente regenerar sin estados de borrador (ADR-DOC-007) |

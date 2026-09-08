@@ -21,20 +21,23 @@ ST&T Atlas es un portal web interno de una empresa de desarrollo de software. Ce
 
 ## Lenguaje visual
 
+Calibrado con las referencias generadas en `references/`.
+
 - Minimalista y profesional. Densidad de información media: suficiente para transmitir solidez, sin saturar.
-- Jerarquía clara: un título por vista, secciones bien separadas, mucho espacio en blanco.
-- Tipografía sans-serif legible. Números y métricas con peso visual mayor que sus etiquetas.
-- Paleta sobria: neutros como base, un color de acento corporativo usado con moderación en acciones primarias y elementos activos.
-- Estados con color mínimo y significado consistente: neutro para reposo, acento para progreso, ámbar para bloqueado, verde para completado.
-- Bordes suaves, sombras discretas, sin degradados llamativos ni ilustraciones decorativas.
+- Jerarquía clara: un título por vista en azul marino oscuro con subtítulo gris, secciones bien separadas, espacio en blanco generoso.
+- Tipografía sans-serif geométrica. Números y métricas con peso visual mayor que sus etiquetas.
+- Paleta: fondo blanco y gris muy claro, texto principal azul marino oscuro, azul corporativo vivo como único acento en acciones primarias, elementos activos y series de datos.
+- Estados con etiqueta redondeada de fondo tenue y punto de color: verde para activo o completado, azul para en progreso, ámbar para en pausa, rojo para bloqueado, archivado o retirado, gris para borrador o planeado.
+- Tarjetas blancas con borde gris claro, esquinas redondeadas y sombra muy discreta. Sin degradados llamativos ni ilustraciones decorativas.
+- Iconos lineales de trazo medio, encerrados en un cuadro redondeado de fondo azul claro cuando acompañan a un indicador o entidad.
 - Modo claro por defecto.
 
 ## Estructura común
 
-- Barra superior con logotipo, nombre del portal, indicador de entorno y acceso al perfil.
-- Navegación lateral izquierda persistente con las secciones principales: Inicio, Proyectos, Métricas, Documentación y Administración cuando el rol lo permite.
-- Área de contenido a la derecha con título de página y, cuando corresponda, migas de navegación.
-- Acciones primarias alineadas a la derecha del encabezado de contenido.
+- Barra superior blanca con el logotipo ST&T ATLAS a la izquierda; a la derecha, la etiqueta redondeada "Entorno de pruebas — POC", un icono de notificaciones con punto indicador y el avatar con nombre de la persona.
+- Navegación lateral izquierda persistente sobre fondo blanco, con icono y texto por sección: Inicio, Proyectos, Slices, Documentación, Métricas y Administración cuando el rol lo permite. La sección activa se resalta con fondo azul claro y texto azul.
+- Área de contenido sobre fondo gris muy claro, con título de página grande y, cuando corresponda, migas de navegación encima.
+- Acciones primarias como botón azul sólido con icono, alineadas a la derecha del encabezado de contenido.
 
 ## Restricciones obligatorias
 
@@ -51,4 +54,8 @@ Mockup de interfaz web de alta fidelidad, vista de escritorio a 1440 px de ancho
 
 ## Bloque reutilizable
 
-> Diseña un mockup de interfaz web de alta fidelidad para un portal interno corporativo llamado ST&T Atlas, en español, estilo minimalista y profesional, modo claro, tipografía sans-serif, paleta de neutros con un solo color de acento, jerarquía clara y espacio en blanco generoso. Incluye barra superior con logotipo, nombre del portal, un indicador visible de entorno no productivo y acceso al perfil; navegación lateral izquierda persistente con Inicio, Proyectos, Métricas, Documentación y Administración; y un área de contenido con título de página. Usa exclusivamente datos ficticios de ejemplo. No incluyas código fuente, pull requests, commits, ramas ni diffs. No incluyas editores de texto ni acciones de guardar o restaurar documentación. No incluyas rankings ni puntajes de desempeño de personas. Vista de escritorio de 1440 px de ancho, encuadre completo, sin marco de navegador ni anotaciones externas.
+> Diseña un mockup de interfaz web de alta fidelidad para un portal interno corporativo llamado ST&T Atlas, en español, estilo minimalista y profesional, modo claro. Tipografía sans-serif geométrica, texto principal azul marino oscuro, fondo blanco y gris muy claro, y un azul corporativo vivo como único color de acento en acciones primarias y elementos activos. Tarjetas blancas con borde gris claro, esquinas redondeadas y sombra discreta; iconos lineales sobre cuadro redondeado azul claro; etiquetas de estado redondeadas con punto de color.
+>
+> Incluye barra superior blanca con el logotipo ST&T ATLAS, la etiqueta "Entorno de pruebas — POC", un icono de notificaciones y el avatar con nombre de la persona. Incluye navegación lateral izquierda persistente con Inicio, Proyectos, Slices, Documentación y Métricas, resaltando la sección activa con fondo azul claro. El área de contenido va sobre fondo gris muy claro, con título de página grande y subtítulo gris.
+>
+> Usa exclusivamente datos ficticios de ejemplo. No incluyas código fuente, pull requests, commits, ramas ni diffs. No incluyas editores de texto ni acciones de guardar o restaurar documentación. No incluyas versiones en estado borrador. No incluyas rankings ni puntajes de desempeño de personas. Vista de escritorio de 1440 px de ancho, encuadre completo, sin marco de navegador ni anotaciones externas.

@@ -48,4 +48,4 @@ Vista de una unidad de trabajo: objetivo, estado, responsables, documentación a
 
 | Imagen | Fecha | Cambios |
 |---|---|---|
-| — | — | Pendiente de generar |
+| `06-slice-detalle--desktop--v1.png` | 2026-09-08 | Detalle con actividad y origen portal/MCP |

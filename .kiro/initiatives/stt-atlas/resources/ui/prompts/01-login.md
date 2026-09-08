@@ -38,4 +38,4 @@ Primera pantalla del portal. Solo ofrece inicio de sesión con Google, sin campo
 
 | Imagen | Fecha | Cambios |
 |---|---|---|
-| — | — | Pendiente de generar |
+| `01-login--desktop--v1.png` | 2026-09-08 | Versión inicial validada |

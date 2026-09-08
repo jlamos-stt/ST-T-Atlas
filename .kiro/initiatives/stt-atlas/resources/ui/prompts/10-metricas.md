@@ -52,4 +52,4 @@ Consulta de métricas por proyecto, slice y persona, distinguiendo métricas obs
 
 | Imagen | Fecha | Cambios |
 |---|---|---|
-| — | — | Pendiente de generar |
+| `10-metricas--desktop--v1.png` | 2026-09-08 | Métricas con tokens marcados como reportados |

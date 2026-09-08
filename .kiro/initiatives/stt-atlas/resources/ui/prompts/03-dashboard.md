@@ -46,4 +46,5 @@ Entrada al portal. Vista minimalista con indicadores agregados de todos los proy
 
 | Imagen | Fecha | Cambios |
 |---|---|---|
-| — | — | Pendiente de generar |
+| `03-dashboard--desktop--v1.png` | 2026-09-08 | Versión inicial |
+| `03-dashboard--desktop--v2.png` | 2026-09-08 | Ajuste de indicadores y bloque de sincronización |

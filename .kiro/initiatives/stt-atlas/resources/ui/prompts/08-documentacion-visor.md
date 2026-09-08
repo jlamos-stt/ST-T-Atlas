@@ -45,4 +45,4 @@ Lectura del Markdown sincronizado desde los entornos de desarrollo, con su conte
 
 | Imagen | Fecha | Cambios |
 |---|---|---|
-| — | — | Pendiente de generar |
+| `08-documentacion-visor--desktop--v1.png` | 2026-09-08 | Visor con índice por tipo documental |

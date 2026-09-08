@@ -34,11 +34,31 @@ resources/ui/
 │   ├── 10-metricas.md
 │   ├── 11-admin-usuarios.md
 │   ├── 12-perfil.md
-│   └── 13-estados-sistema.md
+│   ├── 13-estados-sistema.md
+│   └── 14-slices-transversal.md
 └── references/                   # imágenes generadas
     ├── README.md
     └── brand/                    # activos de marca provistos por ST&T
 ```
+
+## Estado de las referencias
+
+| Prompt | Imagen | Estado |
+|---|---|---|
+| 01 Ingreso corporativo | v1 | Generada |
+| 02 Onboarding | v1 | Generada, paso 1 |
+| 03 Dashboard | v1, v2 | Generadas |
+| 04 Listado de proyectos | v1 | Generada |
+| 05 Detalle de proyecto | v1 | Generada |
+| 06 Detalle de slice | v1 | Generada |
+| 07 Formularios de gestión | v1 | Generada, nuevo proyecto |
+| 08 Visor de documentación | v1 | Generada |
+| 09 Historial de versiones | v1 | Regenerar sin estados de borrador |
+| 10 Métricas | v1 | Generada |
+| 11 Administración de usuarios | v1 | Generada |
+| 12 Perfil personal | — | Pendiente |
+| 13 Estados del sistema | v1 | Generada |
+| 14 Vista transversal de slices | — | Pendiente |
 
 ## Cómo se usa
 

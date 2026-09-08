@@ -41,4 +41,4 @@ Secuencia breve que aparece una única vez: confirma datos de presentación y mu
 
 | Imagen | Fecha | Cambios |
 |---|---|---|
-| — | — | Pendiente de generar |
+| `02-onboarding--paso-1--v1.png` | 2026-09-08 | Paso 1 del onboarding |

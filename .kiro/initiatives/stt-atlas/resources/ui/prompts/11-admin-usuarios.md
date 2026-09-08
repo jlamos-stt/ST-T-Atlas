@@ -49,4 +49,4 @@ Gobierno de perfiles: consultar usuarios, cambiar roles, retirar accesos y react
 
 | Imagen | Fecha | Cambios |
 |---|---|---|
-| — | — | Pendiente de generar |
+| `11-admin-usuarios--desktop--v1.png` | 2026-09-08 | Administración de usuarios y roles |

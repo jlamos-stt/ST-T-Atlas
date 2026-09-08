@@ -46,4 +46,4 @@ Vista completa del portafolio con estado y avance de cada proyecto, y punto de e
 
 | Imagen | Fecha | Cambios |
 |---|---|---|
-| — | — | Pendiente de generar |
+| `04-proyectos-listado--desktop--v1.png` | 2026-09-08 | Tabla con filtros de estado |

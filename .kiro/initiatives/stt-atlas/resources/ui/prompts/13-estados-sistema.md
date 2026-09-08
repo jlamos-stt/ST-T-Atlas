@@ -43,4 +43,4 @@ Estados transversales que la implementación necesita como referencia: sin datos
 
 | Imagen | Fecha | Cambios |
 |---|---|---|
-| — | — | Pendiente de generar |
+| `13-estados-sistema--lamina--v1.png` | 2026-09-08 | Lámina con los cinco estados |

@@ -48,4 +48,4 @@ Vista central de un proyecto: estado, slices, asignaciones, documentación dispo
 
 | Imagen | Fecha | Cambios |
 |---|---|---|
-| — | — | Pendiente de generar |
+| `05-proyecto-detalle--desktop--v1.png` | 2026-09-08 | Detalle con slices agrupadas por fase |
