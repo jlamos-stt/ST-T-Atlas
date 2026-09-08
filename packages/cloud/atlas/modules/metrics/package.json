@@ -1,0 +1,9 @@
+{
+  "name": "@stt/atlas.cloud.atlas.metrics",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@stt/atlas.cloud.atlas": "file:../.."
+  }
+}
