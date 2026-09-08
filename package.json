@@ -1,0 +1,18 @@
+{
+  "name": "@stt/atlas",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "workspaces": [],
+  "devDependencies": {
+    "@webiai/devlink": "^2.8.1",
+    "@webiai/sdk.cli": "0.23.11"
+  },
+  "overrides": {
+    "google-protobuf": "3.21.2"
+  },
+  "dependencies": {}
+}
