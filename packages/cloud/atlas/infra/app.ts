@@ -144,6 +144,8 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
 
     // Cola principal: alimenta la agregación asíncrona de métricas.
     this.queues.MetricsEvents = new sst.aws.Queue('MetricsEvents', {
+      // SQS exige que la visibilidad sea mayor o igual al timeout del consumidor.
+      visibilityTimeout: '120 seconds',
       dlq: {
         queue: this.queues.MetricsDeadLetter.arn,
         retry: 3,
@@ -190,12 +192,19 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
     });
 
     // Procesamiento asíncrono: construye los agregados a partir de la auditoría.
+    // La cola se vincula para que el rol de ejecución reciba los permisos de
+    // consumo (ReceiveMessage, DeleteMessage, GetQueueAttributes) que exige el
+    // Event Source Mapping; sin ese vínculo la suscripción no puede crearse.
     this.functions.Metrics = new sst.aws.Function('MetricsProcessor', {
       handler: 'modules/metrics/src/handler.handler',
       runtime: 'nodejs22.x',
       memory: '512 MB',
       timeout: '60 seconds',
-      link: [this.tables.Audit.nodes.table, this.tables.Metrics.nodes.table],
+      link: [
+        this.tables.Audit.nodes.table,
+        this.tables.Metrics.nodes.table,
+        this.queues.MetricsEvents,
+      ],
       environment: { ATLAS_ENVIRONMENT: 'noprod' },
     });
 
