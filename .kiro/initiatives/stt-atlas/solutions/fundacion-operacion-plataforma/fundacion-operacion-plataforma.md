@@ -5,7 +5,7 @@ solution: Fundación y operación de plataforma
 initiative: ../../stt-atlas.md
 author: Juan Felipe Lamos
 created: 2026-09-08
-updated: 2026-09-08
+updated: 2026-09-09
 status: drafting
 language: es
 ---
@@ -160,7 +160,7 @@ Esta etapa se ejecuta como POC sobre una cuenta AWS de pruebas. No se conectará
 
 | # | Slice | Objetivo | Est. | Estado |
 |---|---|---|---|---|
-| 01 | Base desplegable reproducible | Disponer del entorno completo de Atlas creado desde IaC en `no-prod`. | 3d | ai-identified |
+| 01 | Base desplegable reproducible | Disponer del entorno completo de Atlas creado desde IaC en `no-prod`. | 3d | completed |
 | 02 | Límites de cómputo y permisos | Separar los tres dominios de cómputo con roles de mínimo privilegio. | 2d | ai-identified |
 | 03 | Observabilidad y alertas de costo | Detectar errores, saturación, latencia y desviación de presupuesto. | 2d | ai-identified |
 | 04 | Continuidad y restauración verificada | Probar que los datos confirmados sobreviven y se pueden restaurar. | 3d | ai-identified |

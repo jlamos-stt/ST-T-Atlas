@@ -5,7 +5,7 @@ solution: Acceso corporativo y gobierno de usuarios
 initiative: ../../stt-atlas.md
 author: Juan Felipe Lamos
 created: 2026-09-08
-updated: 2026-09-08
+updated: 2026-09-09
 status: drafting
 language: es
 ---
@@ -178,7 +178,7 @@ Los roles son globales y se almacenan en el perfil interno. Las decisiones de au
 
 | # | Slice | Objetivo | Est. | Estado |
 |---|---|---|---|---|
-| 01 | Habilitación manual del proveedor | Dejar configurado el acceso corporativo con una guía reproducible. | 1d | ai-identified |
+| 01 | Habilitación manual del proveedor | Dejar configurado el acceso corporativo con una guía reproducible. | 1d | user-identified |
 | 02 | Ingreso corporativo validado | Permitir el acceso solo a cuentas corporativas con token verificado. | 3d | ai-identified |
 | 03 | Perfil y onboarding inicial | Crear el perfil en el primer ingreso y completar su presentación. | 2d | ai-identified |
 | 04 | Roles y autorización en servidor | Aplicar los tres roles globales en todas las operaciones. | 2d | ai-identified |
