@@ -178,8 +178,8 @@ Los roles son globales y se almacenan en el perfil interno. Las decisiones de au
 
 | # | Slice | Objetivo | Est. | Estado |
 |---|---|---|---|---|
-| 01 | Habilitación manual del proveedor | Dejar configurado el acceso corporativo con una guía reproducible. | 1d | user-identified |
-| 02 | Ingreso corporativo validado | Permitir el acceso solo a cuentas corporativas con token verificado. | 3d | ai-identified |
+| 01 | Habilitación manual del proveedor | Dejar configurado el acceso corporativo con una guía reproducible. | 1d | blocked |
+| 02 | Ingreso corporativo validado | Permitir el acceso solo a cuentas corporativas con token verificado. | 3d | in-progress |
 | 03 | Perfil y onboarding inicial | Crear el perfil en el primer ingreso y completar su presentación. | 2d | ai-identified |
 | 04 | Roles y autorización en servidor | Aplicar los tres roles globales en todas las operaciones. | 2d | ai-identified |
 | 05 | Gobierno de perfiles | Administrar roles, retiros y reactivaciones con auditoría. | 2d | ai-identified |
@@ -197,7 +197,10 @@ Los roles son globales y se almacenan en el perfil interno. Las decisiones de au
 | **Contexto** | Guía operativa en `resources/`; secretos fuera del repositorio; aplicación interna con alcances mínimos. |
 | **Est.** | 1d |
 | **Deps** | — |
+| **Bloqueo** | Requiere una cuenta administradora de Google Workspace/Cloud de ST&T para crear o configurar el proyecto corporativo, registrar la aplicación OAuth interna y aplicar las políticas de acceso. |
 | **Fuera de alcance** | Automatizar la creación del proyecto o de las credenciales. |
+
+**Desbloqueo**: contar con la intervención del administrador corporativo y recibir los parámetros no secretos de configuración —proyecto, `client ID`, orígenes, URI de callback y alcances aprobados— manteniendo el secreto fuera del repositorio.
 
 **Criterios de aceptación**:
 - [ ] La guía permite completar la configuración sin conocimiento previo del proyecto.
@@ -219,6 +222,10 @@ Los roles son globales y se almacenan en el perfil interno. Las decisiones de au
 | **Est.** | 3d |
 | **Deps** | 01 |
 | **Fuera de alcance** | Roles, onboarding y gestión de perfiles. |
+
+**Nota de implementación**: se implementa el contrato de autenticación y la pantalla de ingreso, pero la verificación end-to-end queda pendiente de la configuración administrativa de la slice 01.
+
+**Configuración requerida**: `ATLAS_GOOGLE_CLIENT_ID`, `ATLAS_GOOGLE_DOMAIN` y `ATLAS_SESSION_SECRET` deben resolverse desde la configuración del entorno; el origen del portal se registra en `ATLAS_PORTAL_ORIGIN`. Ninguno de estos valores debe hardcodearse en la SPA o el repositorio.
 
 **Criterios de aceptación**:
 - [ ] Una cuenta corporativa inicia sesión sin credenciales locales.

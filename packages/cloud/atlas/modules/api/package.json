@@ -10,6 +10,8 @@
     "webiai:bundle": "run-s bundle"
   },
   "dependencies": {
-    "@stt/atlas.cloud.atlas": "file:../.."
+    "@stt/atlas.cloud.atlas": "file:../..",
+    "@aws-sdk/client-dynamodb": "^3.958.0",
+    "@aws-sdk/lib-dynamodb": "^3.958.0"
   }
 }

@@ -173,7 +173,12 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
         this.tables.Metrics.nodes.table,
         this.buckets.Documents,
       ],
-      environment: { ATLAS_ENVIRONMENT: 'noprod' },
+      environment: {
+        ATLAS_ENVIRONMENT: 'noprod',
+        ATLAS_GOOGLE_CLIENT_ID: Env.var('ATLAS_GOOGLE_CLIENT_ID').optional.string() ?? '',
+        ATLAS_GOOGLE_DOMAIN: Env.var('ATLAS_GOOGLE_DOMAIN').optional.string() ?? 'stt.com.co',
+        ATLAS_SESSION_SECRET: Env.var('ATLAS_SESSION_SECRET').optional.string() ?? '',
+      },
     });
 
     // Pasarela MCP: valida el token, aplica autorización y registra auditoría.
@@ -220,7 +225,14 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
    */
   private initGateway(): void {
     this.gateway.Http = new ApiGateway('Http', {
-      cors: true,
+      cors: {
+        allowCredentials: true,
+        allowOrigins: [
+          Env.var('ATLAS_PORTAL_ORIGIN').optional.string() ?? 'http://localhost:5173',
+        ],
+        allowHeaders: ['content-type', 'authorization'],
+        allowMethods: ['GET', 'POST', 'OPTIONS'],
+      },
     });
 
     // Rutas del portal: consumidas por la SPA autenticada con Google.
@@ -252,6 +264,7 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
       environment: {
         VITE_ATLAS_API_URL: this.gateway.Http.url,
         VITE_ATLAS_ENVIRONMENT: 'noprod',
+        VITE_ATLAS_GOOGLE_CLIENT_ID: Env.var('ATLAS_GOOGLE_CLIENT_ID').optional.string() ?? '',
       },
     });
   }
