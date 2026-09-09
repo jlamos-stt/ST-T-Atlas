@@ -4,8 +4,8 @@ import { useEffect, useState, type FormEvent } from 'react';
  * Atlas — corporate sign-in and NOPROD portal demo.
  *
  * The visual structure follows the Webi Elements refinement sessions and the
- * supplied Atlas references. Authentication and authorization remain owned by
- * the API; localStorage is used only for the NOPROD profile demonstration.
+ * supplied Atlas references. Authentication, profile persistence and authorization
+ * remain owned by the API; the browser keeps only ephemeral React state.
  */
 
 interface GoogleCredentialResponse {
@@ -31,6 +31,7 @@ declare global {
 }
 
 interface AuthenticatedIdentity {
+  subject: string;
   email: string;
   name?: string;
   picture?: string;
@@ -58,8 +59,6 @@ interface KpiDefinition {
   change: string;
 }
 
-const PROFILE_STORAGE_PREFIX = 'atlas:demo-profile:';
-
 const KPI_DEFINITIONS: KpiDefinition[] = [
   { icon: 'folder', label: 'Proyectos activos', value: '7', change: '+1 desde ayer' },
   { icon: 'layers', label: 'Slices en curso', value: '14', change: '+3 desde ayer' },
@@ -82,7 +81,10 @@ export default function App() {
   const [identity, setIdentity] = useState<AuthenticatedIdentity | undefined>();
   const [profile, setProfile] = useState<AtlasProfile | undefined>();
   const [error, setError] = useState<string | undefined>();
+  const [profileError, setProfileError] = useState<string | undefined>();
   const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [isProfileSaving, setIsProfileSaving] = useState(false);
+  const [isRestoringSession, setIsRestoringSession] = useState(true);
   const googleClientId = import.meta.env.VITE_ATLAS_GOOGLE_CLIENT_ID as string | undefined;
   const apiUrl = (import.meta.env.VITE_ATLAS_API_URL as string | undefined) ?? '';
   // The local identity provider is opt-in by configuration, never inferred from
@@ -103,7 +105,10 @@ export default function App() {
     script.onload = () => initializeGoogleSignIn(
       googleClientId,
       apiUrl,
-      setIdentity,
+      (authenticatedIdentity, authenticatedProfile) => {
+        setIdentity(authenticatedIdentity);
+        setProfile(authenticatedProfile);
+      },
       setError,
       setIsAuthenticating
     );
@@ -118,13 +123,22 @@ export default function App() {
   }, [apiUrl, googleClientId]);
 
   useEffect(() => {
-    if (!identity) {
-      setProfile(undefined);
-      return;
-    }
+    // Restore the signed session so a reload does not force a new login.
+    void restoreSession(apiUrl, (restoredIdentity, restoredProfile) => {
+      setIdentity(restoredIdentity);
+      setProfile(restoredProfile);
+      setIsRestoringSession(false);
+    }, () => {
+      setIsRestoringSession(false);
+    });
+  }, [apiUrl]);
 
-    setProfile(loadDemoProfile(identity));
-  }, [identity]);
+  useEffect(() => {
+    if (!identity || profile) return;
+
+    // Restore the canonical profile through the signed session after a page reload.
+    void fetchProfile(apiUrl, setProfile, setProfileError);
+  }, [apiUrl, identity, profile]);
 
   /**
    * Runs the demo sign-in through the real authentication contract.
@@ -156,13 +170,14 @@ export default function App() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ credential: credentialResult.credential }),
       });
-      const identityResult = await identityResponse.json() as { identity?: AuthenticatedIdentity; error?: string };
-      if (!identityResponse.ok || !identityResult.identity) {
+      const identityResult = await identityResponse.json() as { identity?: AuthenticatedIdentity; profile?: AtlasProfile; error?: string };
+      if (!identityResponse.ok || !identityResult.identity || !identityResult.profile) {
         setError(identityResult.error ?? 'No fue posible validar la identidad corporativa.');
         return;
       }
 
       setIdentity(identityResult.identity);
+      setProfile(identityResult.profile);
     } catch {
       setError('No fue posible conectar con Atlas.');
     } finally {
@@ -170,18 +185,50 @@ export default function App() {
     }
   }
 
-  function endSession(): void {
-    setIdentity(undefined);
-    setProfile(undefined);
+  async function endSession(): Promise<void> {
+    // Best-effort server logout; local state is cleared even if the network is unavailable.
+    try {
+      await fetch(`${apiUrl}/api/auth/logout`, { method: 'POST', credentials: 'include' });
+    } finally {
+      setIdentity(undefined);
+      setProfile(undefined);
+      setProfileError(undefined);
+    }
   }
 
-  function skipOnboarding(): void {
-    setProfile((current) => current ? { ...current, onboardingPending: false } : current);
+  async function skipOnboarding(): Promise<void> {
+    await saveProfilePatch({ onboardingPending: false });
   }
 
-  function completeOnboarding(updatedProfile: AtlasProfile): void {
-    saveDemoProfile(updatedProfile);
-    setProfile(updatedProfile);
+  async function completeOnboarding(patch: ProfilePatch): Promise<void> {
+    await saveProfilePatch({ ...patch, onboardingPending: false });
+  }
+
+  async function saveProfilePatch(patch: ProfilePatch): Promise<void> {
+    setProfileError(undefined);
+    setIsProfileSaving(true);
+    try {
+      const response = await fetch(`${apiUrl}/api/profile/me`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      const result = await response.json() as { profile?: AtlasProfile; error?: string };
+      if (!response.ok || !result.profile) {
+        setProfileError(result.error ?? 'No pudimos guardar tus cambios.');
+        return;
+      }
+      setProfile(result.profile);
+    } catch {
+      setProfileError('No pudimos conectar con Atlas para guardar tus cambios.');
+    } finally {
+      setIsProfileSaving(false);
+    }
+  }
+
+  if (isRestoringSession) {
+    return <main className="atlas-shell"><p className="loading-message" role="status">Restaurando tu sesión…</p></main>;
   }
 
   if (identity && profile?.onboardingPending) {
@@ -196,7 +243,13 @@ export default function App() {
           </div>
           <h1 id="onboarding-title">Tu perfil</h1>
           <p className="modal-subtitle">Confirma cómo quieres presentarte ante tu equipo.</p>
-          <OnboardingForm profile={profile} onSkip={skipOnboarding} onComplete={completeOnboarding} />
+          <OnboardingForm
+            profile={profile}
+            error={profileError}
+            isSaving={isProfileSaving}
+            onSkip={skipOnboarding}
+            onComplete={completeOnboarding}
+          />
         </section>
       </main>
     );
@@ -310,7 +363,7 @@ function Dashboard({
             <div className="card-heading"><div><h2>Actividad reciente</h2><span>Últimas acciones visibles en la demo</span></div></div>
             <div className="activity-list">
               {RECENT_ACTIVITY.map(([time, person, action, entity, context]) => (
-                <div className="activity-row" key={`${time}-${person}`}><time>{time}</time><ProfileAvatar identity={{ email: person }} size="xsmall" /><span><strong>{person}</strong> {action} {entity && <a href="#actividad">{entity}</a>} {context && <em>{context}</em>}</span></div>
+                <div className="activity-row" key={`${time}-${person}`}><time>{time}</time><ProfileAvatar identity={{ subject: person, email: person }} size="xsmall" /><span><strong>{person}</strong> {action} {entity && <a href="#actividad">{entity}</a>} {context && <em>{context}</em>}</span></div>
               ))}
             </div>
             <a className="view-link" href="#proyectos">Ver todos los proyectos <Icon name="arrow" /></a>
@@ -334,14 +387,26 @@ function PortalBackdrop() {
   return <div className="portal-backdrop" aria-hidden="true"><div className="backdrop-header" /><div className="backdrop-body"><div className="backdrop-sidebar" /><div className="backdrop-main"><span /><span /><div className="backdrop-cards"><i /><i /><i /></div><div className="backdrop-lines"><i /><i /><i /><i /></div></div></div></div>;
 }
 
+interface ProfilePatch {
+  displayName?: string;
+  picture?: string;
+  description?: string;
+  onboardingPending?: false;
+}
+
+/** Renders the Webi Elements-inspired modal form for the canonical profile API. */
 function OnboardingForm({
   profile,
+  error,
+  isSaving,
   onSkip,
   onComplete,
 }: {
   profile: AtlasProfile;
-  onSkip(): void;
-  onComplete(profile: AtlasProfile): void;
+  error?: string;
+  isSaving: boolean;
+  onSkip(): Promise<void>;
+  onComplete(patch: ProfilePatch): Promise<void>;
 }) {
   const [displayName, setDisplayName] = useState(profile.displayName);
   const [picture, setPicture] = useState(profile.picture ?? '');
@@ -349,12 +414,10 @@ function OnboardingForm({
 
   function submit(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    onComplete({
-      ...profile,
+    void onComplete({
       displayName: displayName.trim() || profile.displayName,
       picture: picture.trim() || undefined,
       description: description.trim(),
-      onboardingPending: false,
     });
   }
 
@@ -366,7 +429,7 @@ function OnboardingForm({
     <form className="onboarding-form" onSubmit={submit}>
       <div className="onboarding-fields">
         <div className="avatar-panel">
-          <ProfileAvatar profile={{ ...profile, picture: picture.trim() || undefined }} identity={{ email: profile.email, name: displayName }} size="xxlarge" />
+          <ProfileAvatar profile={{ ...profile, picture: picture.trim() || undefined }} identity={{ subject: profile.subject, email: profile.email, name: displayName }} size="xxlarge" />
           <button className="replace-photo" type="button" onClick={focusPictureField}><span aria-hidden="true">▣</span> Reemplazar foto</button>
           <small>Opcional · se usará tu avatar corporativo si no agregas una imagen.</small>
         </div>
@@ -379,9 +442,10 @@ function OnboardingForm({
           <input id="profile-picture" type="url" value={picture} onChange={(event) => setPicture(event.target.value)} placeholder="https://..." />
         </div>
       </div>
-      <div className="info-alert" role="status"><span aria-hidden="true">i</span><span>Tu correo corporativo y tu rol los administra el portal.</span></div>
+      <div className="info-alert" role="status"><span aria-hidden="true">i</span><span>Tu identidad corporativa, correo, rol y estado los administra el portal.</span></div>
+      {error && <div className="profile-error" role="alert"><span aria-hidden="true">!</span><span>{error}</span></div>}
       <div className="modal-divider" />
-      <div className="onboarding-actions"><button className="outline-action" type="button" onClick={onSkip}>Omitir</button><button className="primary-action" type="submit">Continuar <Icon name="arrow" /></button></div>
+      <div className="onboarding-actions"><button className="outline-action" type="button" onClick={() => void onSkip()} disabled={isSaving}>Omitir</button><button className="primary-action" type="submit" disabled={isSaving}>{isSaving ? 'Guardando…' : 'Continuar'} {!isSaving && <Icon name="arrow" />}</button></div>
     </form>
   );
 }
@@ -397,9 +461,10 @@ function ProfileAvatar({
 }) {
   const name = profile?.displayName ?? identity.name ?? identity.email;
   const initials = name.split(/\s+/).map((part) => part[0]).join('').slice(0, 2).toUpperCase();
-  return profile?.picture || identity.picture
-    ? <img className={`profile-avatar ${size}`} src={profile?.picture ?? identity.picture} alt={name} />
-    : <span className={`profile-avatar fallback ${size}`} aria-label={name}>{initials}</span>;
+  if (profile?.picture || identity.picture) {
+    return <img className={`profile-avatar ${size}`} src={profile?.picture ?? identity.picture} alt={name} />;
+  }
+  return <span className={`profile-avatar fallback ${size}`} aria-label={name}>{initials}</span>;
 }
 
 function Icon({ name }: { name: IconName }) {
@@ -424,37 +489,53 @@ function roleLabel(role?: ProfileRole): string {
   return 'Administrativo';
 }
 
-function loadDemoProfile(identity: AuthenticatedIdentity): AtlasProfile {
-  const storageKey = `${PROFILE_STORAGE_PREFIX}${identity.email}`;
-  const stored = window.localStorage.getItem(storageKey);
-  if (stored) {
-    try {
-      return JSON.parse(stored) as AtlasProfile;
-    } catch {
-      window.localStorage.removeItem(storageKey);
+/** Restores an existing Atlas session by reading its canonical profile. */
+async function restoreSession(
+  apiUrl: string,
+  onAuthenticated: (identity: AuthenticatedIdentity, profile: AtlasProfile) => void,
+  onUnauthenticated: () => void,
+): Promise<void> {
+  try {
+    const response = await fetch(`${apiUrl}/api/profile/me`, { credentials: 'include' });
+    const result = await response.json() as { profile?: AtlasProfile };
+    if (!response.ok || !result.profile) {
+      onUnauthenticated();
+      return;
     }
+    onAuthenticated({
+      subject: result.profile.subject,
+      email: result.profile.email,
+      name: result.profile.displayName,
+      picture: result.profile.picture,
+    }, result.profile);
+  } catch {
+    onUnauthenticated();
   }
-
-  return {
-    subject: identity.email,
-    email: identity.email,
-    displayName: identity.name ?? identity.email,
-    picture: identity.picture,
-    description: '',
-    role: 'administrative',
-    status: 'active',
-    onboardingPending: true,
-  };
 }
 
-function saveDemoProfile(profile: AtlasProfile): void {
-  window.localStorage.setItem(`${PROFILE_STORAGE_PREFIX}${profile.email}`, JSON.stringify(profile));
+/** Fetches the canonical profile associated with the HttpOnly Atlas session. */
+async function fetchProfile(
+  apiUrl: string,
+  onProfile: (profile: AtlasProfile) => void,
+  onError: (message: string) => void,
+): Promise<void> {
+  try {
+    const response = await fetch(`${apiUrl}/api/profile/me`, { credentials: 'include' });
+    const result = await response.json() as { profile?: AtlasProfile; error?: string };
+    if (!response.ok || !result.profile) {
+      onError(result.error ?? 'No fue posible cargar tu perfil.');
+      return;
+    }
+    onProfile(result.profile);
+  } catch {
+    onError('No fue posible conectar con Atlas.');
+  }
 }
 
 function initializeGoogleSignIn(
   clientId: string,
   apiUrl: string,
-  onIdentity: (identity: AuthenticatedIdentity) => void,
+  onAuthenticated: (identity: AuthenticatedIdentity, profile: AtlasProfile) => void,
   onError: (message: string) => void,
   onLoading: (loading: boolean) => void,
 ): void {
@@ -474,12 +555,12 @@ function initializeGoogleSignIn(
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ credential }),
         });
-        const result = await response.json() as { identity?: AuthenticatedIdentity; error?: string };
-        if (!response.ok || !result.identity) {
+        const result = await response.json() as { identity?: AuthenticatedIdentity; profile?: AtlasProfile; error?: string };
+        if (!response.ok || !result.identity || !result.profile) {
           onError(result.error ?? 'No fue posible validar la identidad corporativa.');
           return;
         }
-        onIdentity(result.identity);
+        onAuthenticated(result.identity, result.profile);
       } catch {
         onError('No fue posible conectar con Atlas.');
       } finally {

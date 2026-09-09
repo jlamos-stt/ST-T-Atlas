@@ -1,6 +1,13 @@
 import { AuthConfigurationError, getGoogleAuthConfig } from './auth/config.js';
 import { recordAuthenticationEvent } from './auth/audit.js';
 import { createAtlasSessionCookie } from './auth/session.js';
+import {
+  getOrCreateProfile,
+  recordProfileEvent,
+  resolveActiveProfile,
+  updateOwnProfile,
+  ProfileRequestError,
+} from './profile/profile.js';
 import { InvalidIdentityTokenError, validateGoogleIdToken } from './auth/oidc.js';
 import { createMockGoogleIdToken, validateMockGoogleIdToken } from './auth/mock.js';
 import type { GoogleAuthConfig } from './auth/config.js';
@@ -13,8 +20,8 @@ import type { GoogleAuthConfig } from './auth/config.js';
  * elección responde a ADR-PLAT-007: la POC usa cómputo por uso para no incurrir
  * en el costo fijo de un clúster de contenedores.
  *
- * Alcance actual del slice 01 (base desplegable reproducible): únicamente el
- * chequeo de disponibilidad. Los flujos de portafolio, documentación y métricas
+ * Alcance actual: autenticación corporativa, sesión Atlas, perfil inicial y
+ * onboarding de presentación; los flujos de portafolio, documentación y métricas
  * se implementan en sus propias soluciones.
  *
  * Archivos relacionados:
@@ -35,6 +42,7 @@ interface HttpEvent {
   body?: string | null;
   isBase64Encoded?: boolean;
   headers?: Record<string, string | undefined>;
+  cookies?: string[];
   requestContext?: {
     http?: { method?: string; path?: string };
   };
@@ -62,7 +70,7 @@ function corsPreflight(): HttpResponse {
     headers: {
       'access-control-allow-credentials': 'true',
       'access-control-allow-headers': 'content-type, authorization',
-      'access-control-allow-methods': 'POST, OPTIONS',
+      'access-control-allow-methods': 'GET, POST, PATCH, OPTIONS',
       'access-control-allow-origin': portalOrigin,
       'cache-control': 'no-store',
     },
@@ -70,8 +78,8 @@ function corsPreflight(): HttpResponse {
   };
 }
 
-/** Rejects non-POST authentication calls while advertising the supported method. */
-function methodNotAllowed(): HttpResponse {
+/** Rejects unsupported methods while advertising the route contract. */
+function methodNotAllowed(allowed = 'POST'): HttpResponse {
   return {
     ...json(405, {
       error: 'Method not allowed',
@@ -79,9 +87,36 @@ function methodNotAllowed(): HttpResponse {
     }),
     headers: {
       'content-type': 'application/json',
-      allow: 'POST',
+      allow: allowed,
     },
   };
+}
+
+/** Parses a JSON request body without leaking malformed input to the response. */
+function parseJsonBody(event: HttpEvent): unknown {
+  if (!event.body) return undefined;
+  const bodyText = event.isBase64Encoded
+    ? Buffer.from(event.body, 'base64').toString('utf8')
+    : event.body;
+  try {
+    return JSON.parse(bodyText);
+  } catch {
+    throw new ProfileRequestError(400, 'INVALID_PROFILE_BODY', 'Profile body is invalid');
+  }
+}
+
+/** Converts a profile-domain error into the stable public API error contract. */
+function profileErrorResponse(error: unknown): HttpResponse {
+  if (error instanceof ProfileRequestError) {
+    return json(error.statusCode, { error: error.message, code: error.code });
+  }
+  console.error('Profile operation unavailable', {
+    error: error instanceof Error ? error.message : String(error),
+  });
+  return json(503, {
+    error: 'Profile service unavailable',
+    code: 'PROFILE_SERVICE_UNAVAILABLE',
+  });
 }
 
 /** Reads a header without depending on API Gateway's casing normalization. */
@@ -208,7 +243,16 @@ async function handleGoogleLogin(event: HttpEvent): Promise<HttpResponse> {
       ? validateMockGoogleIdToken(idToken, config)
       : await validateGoogleIdToken(idToken, config);
 
-    // 4. Audit the accepted identity and issue a session that contains no Google token.
+    // 4. Resolve the stable subject and create its least-privileged profile once.
+    const profileResult = await getOrCreateProfile(identity);
+    if (profileResult.created) {
+      await recordProfileEvent('profile_created', identity.subject);
+    }
+    if (profileResult.profile.status !== 'active') {
+      return rejectAuthentication('PROFILE_INACTIVE');
+    }
+
+    // 5. Audit the accepted identity and issue a session that contains no Google token.
     await recordAuthenticationEvent({
       action: 'login',
       result: 'accepted',
@@ -223,6 +267,7 @@ async function handleGoogleLogin(event: HttpEvent): Promise<HttpResponse> {
           name: identity.name,
           picture: identity.picture,
         },
+        profile: profileResult.profile,
       }),
       headers: {
         'content-type': 'application/json',
@@ -266,6 +311,36 @@ export async function handler(event: HttpEvent): Promise<HttpResponse> {
   if (path.endsWith('/auth/google')) {
     // Guard: authentication credentials must never be accepted through another HTTP verb.
     return method === 'POST' ? handleGoogleLogin(event) : methodNotAllowed();
+  }
+
+  // Route: return the canonical profile associated with the signed Atlas session.
+  if (path.endsWith('/profile/me')) {
+    if (method !== 'GET' && method !== 'PATCH') return methodNotAllowed('GET, PATCH');
+    try {
+      const { profile, session } = await resolveActiveProfile(event);
+      if (method === 'GET') return json(200, { profile });
+      const updatedProfile = await updateOwnProfile(session.subject, parseJsonBody(event));
+      if (updatedProfile.onboardingPending === false && profile.onboardingPending) {
+        await recordProfileEvent('onboarding_completed', profile.subject);
+      }
+      return json(200, { profile: updatedProfile });
+    } catch (error) {
+      return profileErrorResponse(error);
+    }
+  }
+
+  // Route: logout clears the Atlas session without exposing its contents.
+  if (path.endsWith('/auth/logout')) {
+    if (method !== 'POST') return methodNotAllowed();
+    return {
+      ...json(200, { authenticated: false }),
+      headers: {
+        'content-type': 'application/json',
+        'cache-control': 'no-store',
+        'set-cookie': 'atlas_session=; HttpOnly;'
+          + `${process.env.ATLAS_LOCAL === 'true' ? '' : ' Secure;'} SameSite=${process.env.ATLAS_LOCAL === 'true' ? 'Lax' : 'None'}; Path=/; Max-Age=0`,
+      },
+    };
   }
 
   // Route: local-only credential issuer so the browser never holds the signing key.

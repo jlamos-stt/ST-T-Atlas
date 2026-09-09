@@ -33,6 +33,7 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
   /** Persistencia operativa: entidades del portafolio, auditoría y agregados. */
   readonly tables = resources<{
     Portfolio: DynamoTable;
+    Profiles: DynamoTable;
     Audit: DynamoTable;
     Metrics: DynamoTable;
   }>();
@@ -111,6 +112,12 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
       primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
     });
 
+    // Perfiles: una identidad estable por subject, nunca por correo mutable.
+    this.tables.Profiles = new DynamoTable('Profiles', {
+      fields: { pk: 'string', sk: 'string' },
+      primaryIndex: { hashKey: 'pk', rangeKey: 'sk' },
+    });
+
     // Auditoría: registro inmutable de cada operación, con expiración por TTL.
     this.tables.Audit = new DynamoTable('Audit', {
       fields: { pk: 'string', sk: 'string' },
@@ -170,7 +177,7 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
   private initFunctions(): void {
     const runtimeEnvironment = this.getRuntimeEnvironment();
 
-    // API del portal: lee y escribe portafolio, audita y sirve documentación.
+    // API del portal: lee y escribe portafolio y perfiles, audita y sirve documentación.
     this.functions.Api = new sst.aws.Function('Api', {
       handler: 'modules/api/src/handler.handler',
       runtime: 'nodejs22.x',
@@ -178,6 +185,7 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
       timeout: '30 seconds',
       link: [
         this.tables.Portfolio.nodes.table,
+        this.tables.Profiles.nodes.table,
         this.tables.Audit.nodes.table,
         this.tables.Metrics.nodes.table,
         this.buckets.Documents,
@@ -194,6 +202,7 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
         ATLAS_MOCK_GOOGLE_SECRET: Env.var('ATLAS_MOCK_GOOGLE_SECRET').optional.string() ?? '',
         ATLAS_GOOGLE_ISSUER: Env.var('ATLAS_GOOGLE_ISSUER').optional.string() ?? '',
         ATLAS_GOOGLE_JWKS_URI: Env.var('ATLAS_GOOGLE_JWKS_URI').optional.string() ?? '',
+        ATLAS_PORTAL_ORIGIN: Env.var('ATLAS_PORTAL_ORIGIN').optional.string() ?? 'http://localhost:5173',
         ATLAS_LOCAL: this.local ? 'true' : 'false',
       },
     });
@@ -248,7 +257,7 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
           Env.var('ATLAS_PORTAL_ORIGIN').optional.string() ?? 'http://localhost:5173',
         ],
         allowHeaders: ['content-type', 'authorization'],
-        allowMethods: ['GET', 'POST', 'OPTIONS'],
+        allowMethods: ['GET', 'POST', 'PATCH', 'OPTIONS'],
       },
     });
 

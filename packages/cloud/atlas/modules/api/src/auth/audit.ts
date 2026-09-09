@@ -17,31 +17,57 @@ export interface AuthenticationAuditEvent {
   reason?: string;
 }
 
+/** Safe audit event shared by authentication and profile lifecycle operations. */
+export interface AccessAuditEvent {
+  action: 'profile_created' | 'onboarding_completed';
+  result: 'accepted';
+  actorSubject: string;
+  targetSubject: string;
+}
+
 /** Writes one authentication event to the linked audit table or local safe logs. */
 export async function recordAuthenticationEvent(event: AuthenticationAuditEvent): Promise<void> {
+  await writeAuditEvent({
+    type: 'authentication',
+    pk: `AUTH#${event.subject ?? 'UNKNOWN'}`,
+    skPrefix: 'LOGIN',
+    ...event,
+  });
+}
+
+/** Writes one profile lifecycle event without storing tokens or request payloads. */
+export async function recordAccessEvent(event: AccessAuditEvent): Promise<void> {
+  await writeAuditEvent({
+    type: 'profile_access',
+    pk: `PROFILE#${event.targetSubject}`,
+    skPrefix: event.action.toUpperCase(),
+    ...event,
+  });
+}
+
+/** Persists a safe audit record or logs it when no local table is linked. */
+async function writeAuditEvent(event: Record<string, unknown> & { pk: string; skPrefix: string }): Promise<void> {
   const auditTableName = getLinkedAuditTableName();
   const timestamp = new Date().toISOString();
-  const safeEvent = {
-    ...event,
+  const { skPrefix, pk, ...safeEvent } = event;
+  const item = {
+    pk,
+    sk: `${skPrefix}#${timestamp}#${randomUUID()}`,
+    ...safeEvent,
     timestamp,
     expiresAt: Math.floor(Date.now() / 1000) + 60 * 60 * 24 * 730,
   };
 
   // Local fallback: preserve observable audit evidence without pretending persistence exists.
   if (!auditTableName) {
-    console.info('Authentication audit event', safeEvent);
+    console.info('Access audit event', item);
     return;
   }
 
   const client = DynamoDBDocumentClient.from(new DynamoDBClient({}));
   await client.send(new PutCommand({
     TableName: auditTableName,
-    Item: {
-      pk: `AUTH#${event.subject ?? 'UNKNOWN'}`,
-      sk: `LOGIN#${timestamp}#${randomUUID()}`,
-      type: 'authentication',
-      ...safeEvent,
-    },
+    Item: item,
   }));
 }
 
