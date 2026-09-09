@@ -1,3 +1,9 @@
+import { AuthConfigurationError, getGoogleAuthConfig } from './auth/config.js';
+import { recordAuthenticationEvent } from './auth/audit.js';
+import { createAtlasSessionCookie } from './auth/session.js';
+import { InvalidIdentityTokenError, validateGoogleIdToken } from './auth/oidc.js';
+import type { GoogleAuthConfig } from './auth/config.js';
+
 /**
  * ApiHandler — Adaptador Lambda de la API del portal ST&T Atlas.
  *
@@ -25,9 +31,17 @@ interface HttpResponse {
 /** Evento de API Gateway HTTP API (payload v2) reducido a lo que se consume. */
 interface HttpEvent {
   rawPath?: string;
+  body?: string | null;
+  isBase64Encoded?: boolean;
+  headers?: Record<string, string | undefined>;
   requestContext?: {
     http?: { method?: string; path?: string };
   };
+}
+
+interface GoogleLoginRequest {
+  credential?: unknown;
+  idToken?: unknown;
 }
 
 /** Construye una respuesta JSON con los encabezados esperados por el gateway. */
@@ -37,6 +51,121 @@ function json(statusCode: number, payload: unknown): HttpResponse {
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
   };
+}
+
+/** Reads a header without depending on API Gateway's casing normalization. */
+function getHeader(event: HttpEvent, name: string): string | undefined {
+  const expectedName = name.toLowerCase();
+  const entry = Object.entries(event.headers ?? {})
+    .find(([key]) => key.toLowerCase() === expectedName);
+  return entry?.[1];
+}
+
+/** Extracts the Google ID token from the GIS body or an explicit bearer header. */
+function extractGoogleIdToken(event: HttpEvent): string | undefined {
+  const authorization = getHeader(event, 'authorization');
+  if (authorization?.startsWith('Bearer ')) return authorization.slice('Bearer '.length).trim();
+  if (!event.body) return undefined;
+
+  try {
+    const bodyText = event.isBase64Encoded
+      ? Buffer.from(event.body, 'base64').toString('utf8')
+      : event.body;
+    const request = JSON.parse(bodyText) as GoogleLoginRequest;
+    const credential = typeof request.credential === 'string' ? request.credential : request.idToken;
+    return typeof credential === 'string' ? credential.trim() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Records a rejection while keeping token contents and provider details out of the audit. */
+async function rejectAuthentication(reason: string): Promise<HttpResponse> {
+  try {
+    await recordAuthenticationEvent({
+      action: 'login_rejected',
+      result: 'rejected',
+      reason,
+    });
+  } catch (error) {
+    // Audit failure is an internal condition; do not expose the storage error to the client.
+    console.error('Authentication audit unavailable', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return json(503, {
+      error: 'Authentication service unavailable',
+      code: 'AUTH_AUDIT_UNAVAILABLE',
+    });
+  }
+
+  return json(401, {
+    error: 'Authentication failed',
+    code: 'AUTHENTICATION_REJECTED',
+  });
+}
+
+/** Handles the corporate Google login flow and creates an Atlas session. */
+async function handleGoogleLogin(event: HttpEvent): Promise<HttpResponse> {
+  let config: GoogleAuthConfig;
+
+  try {
+    // 1. Fail as a deployment configuration error before treating anyone as unauthorized.
+    config = getGoogleAuthConfig();
+  } catch (error) {
+    if (error instanceof AuthConfigurationError) {
+      console.error('Authentication configuration unavailable', { code: 'AUTH_CONFIGURATION_ERROR' });
+      return json(503, {
+        error: 'Authentication is not configured',
+        code: 'AUTH_CONFIGURATION_ERROR',
+      });
+    }
+    throw error;
+  }
+
+  // 2. Extract the untrusted browser credential without logging or persisting it.
+  const idToken = extractGoogleIdToken(event);
+  if (!idToken) return rejectAuthentication('MISSING_ID_TOKEN');
+
+  try {
+    // 3. Verify signature, issuer, audience, expiry and corporate domain.
+    const identity = await validateGoogleIdToken(idToken, config);
+
+    // 4. Audit the accepted identity and issue a session that contains no Google token.
+    await recordAuthenticationEvent({
+      action: 'login',
+      result: 'accepted',
+      subject: identity.subject,
+    });
+    return {
+      ...json(200, {
+        authenticated: true,
+        identity: {
+          subject: identity.subject,
+          email: identity.email,
+          name: identity.name,
+          picture: identity.picture,
+        },
+      }),
+      headers: {
+        'content-type': 'application/json',
+        'cache-control': 'no-store',
+        'set-cookie': [
+          `atlas_session=${createAtlasSessionCookie(identity, config.sessionSecret)}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=3600`,
+        ].join(''),
+      },
+    };
+  } catch (error) {
+    if (error instanceof InvalidIdentityTokenError) {
+      return rejectAuthentication('INVALID_ID_TOKEN');
+    }
+    console.error('Authentication flow unavailable', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return json(503, {
+      error: 'Authentication service unavailable',
+      code: 'AUTH_SERVICE_UNAVAILABLE',
+    });
+  }
 }
 
 /**
@@ -50,6 +179,9 @@ function json(statusCode: number, payload: unknown): HttpResponse {
  */
 export async function handler(event: HttpEvent): Promise<HttpResponse> {
   const path = event.requestContext?.http?.path ?? event.rawPath ?? '/';
+
+  // Route: the SPA posts the Google Identity Services credential to this endpoint.
+  if (path.endsWith('/auth/google')) return handleGoogleLogin(event);
 
   // Guard: el slice 01 solo publica el chequeo de disponibilidad. Cualquier otra
   // ruta debe fallar de forma explícita en lugar de devolver un cuerpo vacío.
