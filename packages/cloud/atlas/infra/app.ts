@@ -153,6 +153,13 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
     });
   }
 
+  /** Resolves the runtime label used to gate NOPROD-only authentication behavior. */
+  private getRuntimeEnvironment(): string {
+    return this.local
+      ? 'local'
+      : (Env.var('SST_STAGE').optional.string() ?? 'noprod').trim().toLowerCase();
+  }
+
   /**
    * Declara los tres límites de cómputo, cada uno con acceso mínimo.
    *
@@ -161,6 +168,8 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
    * que consume la cola y el único que escribe agregados.
    */
   private initFunctions(): void {
+    const runtimeEnvironment = this.getRuntimeEnvironment();
+
     // API del portal: lee y escribe portafolio, audita y sirve documentación.
     this.functions.Api = new sst.aws.Function('Api', {
       handler: 'modules/api/src/handler.handler',
@@ -174,10 +183,18 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
         this.buckets.Documents,
       ],
       environment: {
-        ATLAS_ENVIRONMENT: 'noprod',
+        ATLAS_ENVIRONMENT: runtimeEnvironment,
         ATLAS_GOOGLE_CLIENT_ID: Env.var('ATLAS_GOOGLE_CLIENT_ID').optional.string() ?? '',
         ATLAS_GOOGLE_DOMAIN: Env.var('ATLAS_GOOGLE_DOMAIN').optional.string() ?? 'stt.com.co',
         ATLAS_SESSION_SECRET: Env.var('ATLAS_SESSION_SECRET').optional.string() ?? '',
+        // Local identity provider: selects the stand-in credential issuer while
+        // Google Workspace is not configured. Switching back to Google is a
+        // configuration change, not a code change.
+        ATLAS_AUTH_PROVIDER: Env.var('ATLAS_AUTH_PROVIDER').optional.string() ?? 'google',
+        ATLAS_MOCK_GOOGLE_SECRET: Env.var('ATLAS_MOCK_GOOGLE_SECRET').optional.string() ?? '',
+        ATLAS_GOOGLE_ISSUER: Env.var('ATLAS_GOOGLE_ISSUER').optional.string() ?? '',
+        ATLAS_GOOGLE_JWKS_URI: Env.var('ATLAS_GOOGLE_JWKS_URI').optional.string() ?? '',
+        ATLAS_LOCAL: this.local ? 'true' : 'false',
       },
     });
 
@@ -254,6 +271,7 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
    * La URL de la API se inyecta en tiempo de build con el prefijo de Vite.
    */
   private initSite(): void {
+    const runtimeEnvironment = this.getRuntimeEnvironment();
     this.sites.Portal = new sst.aws.StaticSite('Portal', {
       path: 'modules/spa',
       build: {
@@ -263,8 +281,11 @@ export class CloudAtlas extends Stack<CloudAtlasEnv> {
       dev: { command: 'npm run dev' },
       environment: {
         VITE_ATLAS_API_URL: this.gateway.Http.url,
-        VITE_ATLAS_ENVIRONMENT: 'noprod',
+        VITE_ATLAS_ENVIRONMENT: runtimeEnvironment,
         VITE_ATLAS_GOOGLE_CLIENT_ID: Env.var('ATLAS_GOOGLE_CLIENT_ID').optional.string() ?? '',
+        // Mirrors the API provider so the SPA offers the local flow only when the
+        // backend actually accepts stand-in credentials.
+        VITE_ATLAS_AUTH_PROVIDER: Env.var('ATLAS_AUTH_PROVIDER').optional.string() ?? 'google',
       },
     });
   }

@@ -223,7 +223,7 @@ Los roles son globales y se almacenan en el perfil interno. Las decisiones de au
 | **Deps** | 01 |
 | **Fuera de alcance** | Roles, onboarding y gestión de perfiles. |
 
-**Nota de implementación**: se implementa el contrato de autenticación y la pantalla de ingreso, pero la verificación end-to-end queda pendiente de la configuración administrativa de la slice 01.
+**Nota de implementación**: el contrato de autenticación y la pantalla de ingreso están implementados. Mientras la configuración administrativa de la slice 01 está pendiente, `local`/`noprod` puede usar un proveedor mock controlado por configuración: la API emite una credencial efímera y la SPA la intercambia mediante el mismo `POST /api/auth/google` que usará Google. El mock está bloqueado fuera de `local`/`noprod`, no sustituye la decisión de Google Workspace y la verificación end-to-end con Google real queda pendiente de la configuración administrativa.
 
 **Configuración requerida**: `ATLAS_GOOGLE_CLIENT_ID`, `ATLAS_GOOGLE_DOMAIN` y `ATLAS_SESSION_SECRET` deben resolverse desde la configuración del entorno; el origen del portal se registra en `ATLAS_PORTAL_ORIGIN`. Ninguno de estos valores debe hardcodearse en la SPA o el repositorio.
 
