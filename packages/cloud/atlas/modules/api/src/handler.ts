@@ -2,6 +2,7 @@ import { AuthConfigurationError, getGoogleAuthConfig } from './auth/config.js';
 import { recordAuthenticationEvent } from './auth/audit.js';
 import { createAtlasSessionCookie } from './auth/session.js';
 import { InvalidIdentityTokenError, validateGoogleIdToken } from './auth/oidc.js';
+import { createMockGoogleIdToken, validateMockGoogleIdToken } from './auth/mock.js';
 import type { GoogleAuthConfig } from './auth/config.js';
 
 /**
@@ -50,6 +51,36 @@ function json(statusCode: number, payload: unknown): HttpResponse {
     statusCode,
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(payload),
+  };
+}
+
+/** Returns the CORS preflight response for browser requests from the portal. */
+function corsPreflight(): HttpResponse {
+  const portalOrigin = process.env.ATLAS_PORTAL_ORIGIN?.trim() ?? '';
+  return {
+    statusCode: 204,
+    headers: {
+      'access-control-allow-credentials': 'true',
+      'access-control-allow-headers': 'content-type, authorization',
+      'access-control-allow-methods': 'POST, OPTIONS',
+      'access-control-allow-origin': portalOrigin,
+      'cache-control': 'no-store',
+    },
+    body: '',
+  };
+}
+
+/** Rejects non-POST authentication calls while advertising the supported method. */
+function methodNotAllowed(): HttpResponse {
+  return {
+    ...json(405, {
+      error: 'Method not allowed',
+      code: 'METHOD_NOT_ALLOWED',
+    }),
+    headers: {
+      'content-type': 'application/json',
+      allow: 'POST',
+    },
   };
 }
 
@@ -104,6 +135,51 @@ async function rejectAuthentication(reason: string): Promise<HttpResponse> {
   });
 }
 
+/**
+ * Issues a local stand-in credential so the browser can exercise the real login.
+ *
+ * The signing secret stays on the server: the SPA receives only a short-lived
+ * credential that it must still exchange at `/api/auth/google`, which applies the
+ * same issuer, audience, expiry and corporate-domain policy as Google.
+ *
+ * Guard: available only while ATLAS_AUTH_PROVIDER=mock. In any other environment
+ * the route reports 404 so a real deployment never exposes a credential issuer.
+ *
+ * @returns The mock credential, or 404 when the local provider is not enabled.
+ */
+async function handleMockCredential(): Promise<HttpResponse> {
+  let config: GoogleAuthConfig;
+
+  try {
+    config = getGoogleAuthConfig();
+  } catch (error) {
+    if (error instanceof AuthConfigurationError) {
+      console.error('Authentication configuration unavailable', { code: 'AUTH_CONFIGURATION_ERROR' });
+      return json(503, {
+        error: 'Authentication is not configured',
+        code: 'AUTH_CONFIGURATION_ERROR',
+      });
+    }
+    throw error;
+  }
+
+  // Guard: the mock issuer must not exist outside the local provider.
+  if (config.provider !== 'mock') {
+    return json(404, {
+      error: 'Not found',
+      code: 'ROUTE_NOT_IMPLEMENTED',
+    });
+  }
+
+  return {
+    ...json(200, { credential: createMockGoogleIdToken(config) }),
+    headers: {
+      'content-type': 'application/json',
+      'cache-control': 'no-store',
+    },
+  };
+}
+
 /** Handles the corporate Google login flow and creates an Atlas session. */
 async function handleGoogleLogin(event: HttpEvent): Promise<HttpResponse> {
   let config: GoogleAuthConfig;
@@ -128,7 +204,9 @@ async function handleGoogleLogin(event: HttpEvent): Promise<HttpResponse> {
 
   try {
     // 3. Verify signature, issuer, audience, expiry and corporate domain.
-    const identity = await validateGoogleIdToken(idToken, config);
+    const identity = config.provider === 'mock'
+      ? validateMockGoogleIdToken(idToken, config)
+      : await validateGoogleIdToken(idToken, config);
 
     // 4. Audit the accepted identity and issue a session that contains no Google token.
     await recordAuthenticationEvent({
@@ -150,7 +228,7 @@ async function handleGoogleLogin(event: HttpEvent): Promise<HttpResponse> {
         'content-type': 'application/json',
         'cache-control': 'no-store',
         'set-cookie': [
-          `atlas_session=${createAtlasSessionCookie(identity, config.sessionSecret)}; HttpOnly; Secure; SameSite=None; Path=/; Max-Age=3600`,
+          `atlas_session=${createAtlasSessionCookie(identity, config.sessionSecret)}; HttpOnly;${process.env.ATLAS_LOCAL === 'true' ? '' : ' Secure;'} SameSite=${process.env.ATLAS_LOCAL === 'true' ? 'Lax' : 'None'}; Path=/; Max-Age=3600`,
         ].join(''),
       },
     };
@@ -179,9 +257,32 @@ async function handleGoogleLogin(event: HttpEvent): Promise<HttpResponse> {
  */
 export async function handler(event: HttpEvent): Promise<HttpResponse> {
   const path = event.requestContext?.http?.path ?? event.rawPath ?? '/';
+  const method = event.requestContext?.http?.method?.toUpperCase();
+
+  // Route: API Gateway forwards preflight requests because the API uses an ANY route.
+  if (method === 'OPTIONS') return corsPreflight();
 
   // Route: the SPA posts the Google Identity Services credential to this endpoint.
-  if (path.endsWith('/auth/google')) return handleGoogleLogin(event);
+  if (path.endsWith('/auth/google')) {
+    // Guard: authentication credentials must never be accepted through another HTTP verb.
+    return method === 'POST' ? handleGoogleLogin(event) : methodNotAllowed();
+  }
+
+  // Route: local-only credential issuer so the browser never holds the signing key.
+  if (path.endsWith('/auth/mock-credential')) {
+    // Guard: do not reveal or invoke the mock issuer outside local/NOPROD environments.
+    const environment = process.env.ATLAS_ENVIRONMENT?.trim().toLowerCase();
+    const provider = process.env.ATLAS_AUTH_PROVIDER?.trim().toLowerCase();
+    if ((environment !== 'local' && environment !== 'noprod') || provider !== 'mock') {
+      return json(404, {
+        error: 'Not found',
+        code: 'ROUTE_NOT_IMPLEMENTED',
+      });
+    }
+
+    // Guard: only POST may mint a short-lived stand-in credential.
+    return method === 'POST' ? handleMockCredential() : methodNotAllowed();
+  }
 
   // Guard: el slice 01 solo publica el chequeo de disponibilidad. Cualquier otra
   // ruta debe fallar de forma explícita en lugar de devolver un cuerpo vacío.

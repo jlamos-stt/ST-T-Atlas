@@ -58,11 +58,6 @@ interface KpiDefinition {
   change: string;
 }
 
-const DEMO_IDENTITY: AuthenticatedIdentity = {
-  email: 'usuario.demo@stt.com.co',
-  name: 'Usuario Demo',
-};
-
 const PROFILE_STORAGE_PREFIX = 'atlas:demo-profile:';
 
 const KPI_DEFINITIONS: KpiDefinition[] = [
@@ -90,8 +85,9 @@ export default function App() {
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const googleClientId = import.meta.env.VITE_ATLAS_GOOGLE_CLIENT_ID as string | undefined;
   const apiUrl = (import.meta.env.VITE_ATLAS_API_URL as string | undefined) ?? '';
-  const environment = import.meta.env.VITE_ATLAS_ENVIRONMENT as string | undefined;
-  const demoMode = !googleClientId && environment === 'noprod';
+  // The local identity provider is opt-in by configuration, never inferred from
+  // missing credentials: an unconfigured deployment must report a config error.
+  const demoMode = (import.meta.env.VITE_ATLAS_AUTH_PROVIDER as string | undefined) === 'mock';
 
   useEffect(() => {
     setError(undefined);
@@ -130,9 +126,48 @@ export default function App() {
     setProfile(loadDemoProfile(identity));
   }, [identity]);
 
-  function startDemoSession(): void {
+  /**
+   * Runs the demo sign-in through the real authentication contract.
+   *
+   * The SPA asks the API for a local stand-in credential and then exchanges it at
+   * the same `/api/auth/google` endpoint Google will use. Nothing is trusted in
+   * the browser: the API still verifies the token and issues the session cookie.
+   */
+  async function startDemoSession(): Promise<void> {
     setError(undefined);
-    setIdentity(DEMO_IDENTITY);
+    setIsAuthenticating(true);
+
+    try {
+      // 1. Request the local credential; the signing secret never leaves the API.
+      const credentialResponse = await fetch(`${apiUrl}/api/auth/mock-credential`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const credentialResult = await credentialResponse.json() as { credential?: string; error?: string };
+      if (!credentialResponse.ok || !credentialResult.credential) {
+        setError(credentialResult.error ?? 'El proveedor de identidad local no está disponible.');
+        return;
+      }
+
+      // 2. Exchange it exactly like the Google flow so the contract stays identical.
+      const identityResponse = await fetch(`${apiUrl}/api/auth/google`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ credential: credentialResult.credential }),
+      });
+      const identityResult = await identityResponse.json() as { identity?: AuthenticatedIdentity; error?: string };
+      if (!identityResponse.ok || !identityResult.identity) {
+        setError(identityResult.error ?? 'No fue posible validar la identidad corporativa.');
+        return;
+      }
+
+      setIdentity(identityResult.identity);
+    } catch {
+      setError('No fue posible conectar con Atlas.');
+    } finally {
+      setIsAuthenticating(false);
+    }
   }
 
   function endSession(): void {
@@ -181,7 +216,9 @@ export default function App() {
           <div className="demo-panel" role="status">
             <strong>Modo demostración</strong>
             <p>Google Workspace aún no está configurado. Puedes recorrer el ingreso, el perfil y el onboarding con un usuario ficticio.</p>
-            <button className="demo-action" type="button" onClick={startDemoSession}>Entrar como usuario demo</button>
+            <button className="demo-action" type="button" onClick={startDemoSession} disabled={isAuthenticating}>
+              {isAuthenticating ? 'Validando…' : 'Entrar como usuario demo'}
+            </button>
           </div>
         ) : !googleClientId ? (
           <p className="configuration-message" role="status">
