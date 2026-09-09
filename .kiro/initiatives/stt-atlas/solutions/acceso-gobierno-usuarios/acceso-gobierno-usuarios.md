@@ -180,8 +180,8 @@ Los roles son globales y se almacenan en el perfil interno. Las decisiones de au
 |---|---|---|---|---|
 | 01 | Habilitación manual del proveedor | Dejar configurado el acceso corporativo con una guía reproducible. | 1d | blocked |
 | 02 | Ingreso corporativo validado | Permitir el acceso solo a cuentas corporativas con token verificado. | 3d | in-progress |
-| 03 | Perfil y onboarding inicial | Crear el perfil en el primer ingreso y completar su presentación. | 2d | ai-identified |
-| 04 | Roles y autorización en servidor | Aplicar los tres roles globales en todas las operaciones. | 2d | ai-identified |
+| 03 | Perfil y onboarding inicial | Crear el perfil en el primer ingreso y completar su presentación. | 2d | in-progress |
+| 04 | Roles y autorización en servidor | Aplicar los tres roles globales en todas las operaciones. | 2d | in-progress |
 | 05 | Gobierno de perfiles | Administrar roles, retiros y reactivaciones con auditoría. | 2d | ai-identified |
 | | | **Total** | **10d** | |
 
@@ -252,6 +252,8 @@ Los roles son globales y se almacenan en el perfil interno. Las decisiones de au
 - [ ] El onboarding no se repite obligatoriamente.
 - [ ] Un cambio de correo no genera un perfil duplicado.
 
+**Nota de implementación actual**: En `NOPROD` existe un recorrido demo con perfil local y persistencia en `localStorage` para validar la experiencia mientras se configura Google. La persistencia canónica en servidor queda pendiente.
+
 ---
 
 ### Slice 04: Roles y autorización en servidor
@@ -270,6 +272,8 @@ Los roles son globales y se almacenan en el perfil interno. Las decisiones de au
 - [ ] Desarrollador gestiona proyectos, slices y asignaciones.
 - [ ] Una solicitud directa sin rol suficiente es rechazada.
 - [ ] El primer superadministrador está disponible tras el despliegue.
+
+**Nota de implementación actual**: La UI muestra la matriz de permisos del rol demo Administrativo; la autorización efectiva en servidor y el primer superadministrador todavía no están habilitados.
 
 ---
 
