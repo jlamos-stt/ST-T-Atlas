@@ -158,6 +158,7 @@ Los roles son globales y se almacenan en el perfil interno. Las decisiones de au
 | ADR-IAM-007 | El perfil solo almacenará nombre visible, imagen, descripción, identidad corporativa, rol y estado. | Minimiza datos personales y reduce la superficie de exposición. |
 | ADR-IAM-008 | La configuración de Google Cloud y Workspace se realizará manualmente siguiendo una guía operativa documentada; Atlas no la automatizará. | Requiere permisos administrativos corporativos y ocurre una sola vez por entorno, por lo que automatizarla no aporta valor en la POC. |
 | ADR-IAM-009 | La aplicación OAuth se configurará como interna, limitada al dominio corporativo y con los alcances mínimos de autenticación e identificación. | Impide que cuentas externas otorguen consentimiento y evita solicitar accesos a Workspace que Atlas no usa. |
+| ADR-IAM-010 | Los perfiles se persistirán server-side en una tabla `Profiles` con clave `PROFILE#<subject>` / `PROFILE`; el correo solo se sincroniza como dato mutable. Sin recurso SST enlazado, el fallback en memoria se limita a desarrollo local y no es persistencia canónica. | Evita duplicados cuando cambia el correo, mantiene la identidad estable del proveedor y permite que el estado activo revoque sesiones desde el servidor. |
 
 ### 7.2 Scope Limitations
 
@@ -171,6 +172,8 @@ Los roles son globales y se almacenan en el perfil interno. Las decisiones de au
 | ID | Área | Decisión actual | Alternativa robusta | Motivo | Costo futuro | Disparador | Cuadrante |
 |---|---|---|---|---|---|---|---|
 | TD-IAM-001 | Gobierno de identidad | Roles administrados manualmente dentro de Atlas. | Sincronización con grupos del directorio corporativo. | Permite iniciar sin depender de una taxonomía de grupos aprobada. | Riesgo de perfiles desactualizados y trabajo administrativo recurrente. | Cuando el volumen de usuarios o la rotación haga inviable la gestión manual. | Prudent-Deliberate |
+| TD-IAM-002 | Auditoría de perfil | La creación de perfil y el evento `profile_created`, así como la actualización de onboarding y `onboarding_completed`, se ejecutan en operaciones separadas. Si la auditoría falla después de persistir el perfil, la solicitud puede devolver error y el evento no se reintenta automáticamente. | Usar una transacción DynamoDB o una outbox idempotente con reconciliación de eventos. | Esta Slice necesita entregar el flujo end-to-end sin introducir una cola o transacción adicional antes de definir el modelo común de auditoría. | Puede faltar un evento de ciclo de vida aunque el cambio de perfil ya exista; el evento no debe considerarse garantizado hasta resolverlo. | Antes de usar la auditoría para cumplimiento, métricas confiables o gobierno administrativo. | Prudent-Deliberate |
+| TD-IAM-003 | Retención de auditoría | La tabla `Audit` conserva eventos durante 730 días mediante TTL en la POC. | Archivo o retención regulada de mayor duración, con política explícita de consulta y eliminación. | El entorno actual requiere una retención operativa acotada y no tiene todavía una política de archivo corporativa. | La auditoría histórica de largo plazo no queda garantizada después de 24 meses. | Antes de producción o cuando se defina la política corporativa de conservación. | Prudent-Deliberate |
 
 ## 8. Slices
 
@@ -247,12 +250,16 @@ Los roles son globales y se almacenan en el perfil interno. Las decisiones de au
 | **Deps** | 02 |
 
 **Criterios de aceptación**:
-- [ ] El primer ingreso crea el perfil con rol de menor privilegio.
-- [ ] La persona ajusta nombre visible, imagen y descripción.
-- [ ] El onboarding no se repite obligatoriamente.
-- [ ] Un cambio de correo no genera un perfil duplicado.
+- [x] El primer ingreso crea el perfil con rol de menor privilegio y `onboardingPending=true`.
+- [x] La persona ajusta nombre visible, imagen y descripción mediante `PATCH /api/profile/me`.
+- [x] El onboarding no se repite obligatoriamente en ingresos posteriores y `Omitir` también lo completa server-side.
+- [x] Un cambio de correo actualiza el dato de contacto sin cambiar `subject` ni crear un perfil duplicado.
+- [x] El titular no puede modificar `subject`, correo, rol ni estado.
+- [x] La creación de perfil y la finalización de onboarding generan eventos de auditoría sin tokens ni credenciales.
 
-**Nota de implementación actual**: En `NOPROD` existe un recorrido demo con perfil local y persistencia en `localStorage` para validar la experiencia mientras se configura Google. La persistencia canónica en servidor queda pendiente.
+**Nota de implementación actual**: La Slice usa una tabla DynamoDB `Profiles` enlazada únicamente con la función `Api`. La clave `PROFILE#<subject>` / `PROFILE` mantiene una identidad estable aunque cambie el correo; el backend sincroniza el correo como dato mutable y la SPA conserva solo estado efímero en React. El fallback `Map` de `profile.ts` existe únicamente para ejecución local sin recurso SST enlazado y no representa persistencia canónica. El modal responsive sigue el contrato de componentes definido con Webi Elements (avatar, campos, textarea, alertas, botones y progreso), con una sola pantalla de presentación; el indicador “Paso 1 de 2” conserva la navegación prevista hacia el portal, cuyo segundo paso no es un formulario adicional de esta Slice.
+
+**Verificación técnica actual**: Build de SPA, bundle de API, diagnósticos TypeScript, `git diff --check` y smoke end-to-end local/NOPROD cubren creación, idempotencia, cambio de correo por `subject`, edición de campos permitidos, rechazo de campos protegidos, finalización idempotente, logout y sesión inválida. El despliegue NOPROD fue verificado con engine/Pulumi sin errores y el smoke remoto confirmó credencial mock `200`, login `200`, lectura y actualización de perfil `200`, rechazo de campo protegido `400`, preflight CORS `204` con el origen CloudFront y método inválido `405`. La Slice puede pasar a revisión QA; no se marca `completed` automáticamente porque la aprobación y el cierre son responsabilidad humana según la metodología.
 
 ---
 

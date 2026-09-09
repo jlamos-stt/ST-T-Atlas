@@ -55,7 +55,9 @@ export function verifyAtlasSessionCookie(
 
   try {
     const claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as AtlasSessionClaims;
-    if (!claims.subject || !claims.email || claims.expiresAt <= nowSeconds) return undefined;
+    if (!claims.subject || !claims.email || !Number.isInteger(claims.issuedAt)
+      || !Number.isInteger(claims.expiresAt) || claims.expiresAt <= nowSeconds
+      || claims.issuedAt > nowSeconds + 300) return undefined;
     return claims;
   } catch {
     return undefined;
